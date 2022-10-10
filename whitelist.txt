@@ -1,0 +1,13 @@
+addini
+addoption
+conftests
+copy2
+dkey
+getini
+hookimpl
+repo
+runpytest
+testdir
+tmpdir
+tryfirst
+untyped
