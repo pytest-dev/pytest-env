@@ -1,0 +1,66 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling>=1.11", "hatch-vcs>=0.2"]
+
+[project]
+name = "pytest-env"
+description = "py.test plugin that allows you to add environment variables."
+readme = "README.md"
+license.file = "LICENSE"
+maintainers = [{ name = "Bernát Gábor", email = "gaborjbernat@gmail.com" }]
+urls.Documentation = "https://bump-deps-index.readthedocs.io"
+urls.Homepage = "https://github.com/pytest-dev/pytest-env"
+urls.Source = "https://github.com/pytest-dev/pytest-env"
+urls.Tracker = "https://github.com/pytest-dev/pytest-env/issues"
+requires-python = ">=3.7"
+dependencies = ["pytest>=7.1.3"]
+optional-dependencies.test = ["coverage>=6.5", "pytest-mock>=3.10", "covdefaults>=2.2"]
+keywords = ["pytest", "env"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dynamic = ["version"]
+
+[project.entry-points.pytest11]
+env = "pytest_env.plugin"
+
+[tool.hatch]
+build.hooks.vcs.version-file = "src/pytest_env/version.py"
+version.source = "vcs"
+
+[tool.black]
+line-length = 120
+
+[tool.coverage]
+source = ["${_COVERAGE_SRC}", "${_COVERAGE_TEST}"]
+run.dynamic_context = "test_function"
+run.plugins = ["covdefaults"]
+run.parallel = true
+report.fail_under = 100
+html.show_contexts = true
+html.skip_covered = false
+paths.source = [
+  "src",
+  ".tox*/*/lib/python*/site-packages",
+  ".tox*/pypy*/site-packages",
+  ".tox*\\*\\Lib\\site-packages",
+  "*/src",
+  "*\\src",
+]
+
+[tool.mypy]
+python_version = "3.10"
+show_error_codes = true
+strict = true
+
+[tool.isort]
+profile = "black"
+known_first_party = ["pytest_env"]

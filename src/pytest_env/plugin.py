@@ -1,26 +1,22 @@
 """Adopt environment section in pytest configuration files."""
+from __future__ import annotations
 
 import os
+
 import pytest
 
 
-def pytest_addoption(parser):
+def pytest_addoption(parser: pytest.Parser) -> None:
     """Add section to configuration files."""
-    help_msg = (
-        "a line separated list of environment variables "
-        "of the form NAME=VALUE."
-        )
+    help_msg = "a line separated list of environment variables " "of the form NAME=VALUE."
 
-    parser.addini(
-        "env",
-        type="linelist",
-        help=help_msg,
-        default=[]
-        )
+    parser.addini("env", type="linelist", help=help_msg, default=[])
 
 
-@pytest.hookimpl(tryfirst=True)
-def pytest_load_initial_conftests(args, early_config, parser):
+@pytest.hookimpl(tryfirst=True)  # type: ignore # untyped decorator
+def pytest_load_initial_conftests(
+    args: list[str], early_config: pytest.Config, parser: pytest.Parser  # noqa: U100
+) -> None:
     """Load environment variables from configuration files."""
     for e in early_config.getini("env"):
         part = e.partition("=")
