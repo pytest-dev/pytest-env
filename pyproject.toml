@@ -8,7 +8,6 @@ description = "py.test plugin that allows you to add environment variables."
 readme = "README.md"
 license.file = "LICENSE"
 maintainers = [{ name = "Bernát Gábor", email = "gaborjbernat@gmail.com" }]
-urls.Documentation = "https://bump-deps-index.readthedocs.io"
 urls.Homepage = "https://github.com/pytest-dev/pytest-env"
 urls.Source = "https://github.com/pytest-dev/pytest-env"
 urls.Tracker = "https://github.com/pytest-dev/pytest-env/issues"
