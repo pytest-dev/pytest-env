@@ -38,7 +38,15 @@ env =
     D:RUN_ENV=test
 ```
 
-Lastly, you can use existing environment variables using a python-like format:
+You can also use `R:` (raw) prefix if you wish to have curly bracket characters inside the env variable:
+
+```ini
+[pytest]
+env =
+    R:SOME_DICT={"key": "value"}
+```
+
+Lastly, you can use existing environment variables using a python-like format (Note: feature is disabled when using `R:` prefix):
 
 ```ini
 [pytest]

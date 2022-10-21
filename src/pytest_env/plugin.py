@@ -23,9 +23,21 @@ def pytest_load_initial_conftests(
         key = part[0].strip()
         value = part[2].strip()
 
+        # use R: as a way to designate whether to use 
+        # "raw" value (skip replacing environment
+        # variables in a value). Use this to allow
+        # curly bracket characters in a value.
+        rkey = key.split("R:")
+        use_raw_value = False
+
+        if len(rkey) == 2:
+            key = rkey[1]
+            use_raw_value = True
+
         # Replace environment variables in value. for instance:
         # TEST_DIR={USER}/repo_test_dir.
-        value = value.format(**os.environ)
+        if not use_raw_value:
+            value = value.format(**os.environ)
 
         # use D: as a way to designate a default value
         # that will only override env variables if they
