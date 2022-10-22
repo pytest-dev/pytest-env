@@ -24,8 +24,8 @@ def pytest_load_initial_conftests(
         args: list[str], early_config: pytest.Config, parser: pytest.Parser  # noqa: U100
 ) -> None:
     """Load environment variables from configuration files."""
-    for e in early_config.getini("env"):
-        part = e.partition("=")
+    for line in early_config.getini("env"):
+        part = line.partition("=")
         # INI key consists of flags and of the env variable key
         # For example D:R:NAME=VAL has two flags (R and D), NAME key, and VAL value
         ini_key = part[0].strip()
