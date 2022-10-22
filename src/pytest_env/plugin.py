@@ -32,7 +32,6 @@ def pytest_load_initial_conftests(
 
         ini_key_parts = ini_key.split(":")
         flags = ini_key_parts[:-1]
-        print(flags)
         for flag in flags:
             if flag not in _ALLOWED_FLAGS:
                 raise Exception(
