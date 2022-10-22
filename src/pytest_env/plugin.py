@@ -18,23 +18,20 @@ def pytest_load_initial_conftests(
     args: list[str], early_config: pytest.Config, parser: pytest.Parser  # noqa: U100
 ) -> None:
     """Load environment variables from configuration files."""
-    for e in early_config.getini("env"):
-        part = e.partition("=")
+    for line in early_config.getini("env"):
+        part = line.partition("=")
         key = part[0].strip()
         value = part[2].strip()
 
-        # Replace environment variables in value. for instance:
-        # TEST_DIR={USER}/repo_test_dir.
+        # Replace environment variables in value. for instance  TEST_DIR={USER}/repo_test_dir.
         value = value.format(**os.environ)
 
-        # use D: as a way to designate a default value
-        # that will only override env variables if they
-        # do not exist already
-        dkey = key.split("D:")
+        # use D: as a way to designate a default value that will only override env variables if they do not exist
+        default_key = key.split("D:")
         default_val = False
 
-        if len(dkey) == 2:
-            key = dkey[1]
+        if len(default_key) == 2:
+            key = default_key[1]
             default_val = True
 
         if not default_val or key not in os.environ:
