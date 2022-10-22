@@ -1,6 +1,6 @@
 [build-system]
 build-backend = "hatchling.build"
-requires = ["hatchling>=1.11", "hatch-vcs>=0.2"]
+requires = ["hatchling>=1.11.1", "hatch-vcs>=0.2"]
 
 [project]
 name = "pytest-env"
@@ -13,7 +13,7 @@ urls.Source = "https://github.com/pytest-dev/pytest-env"
 urls.Tracker = "https://github.com/pytest-dev/pytest-env/issues"
 requires-python = ">=3.7"
 dependencies = ["pytest>=7.1.3"]
-optional-dependencies.test = ["coverage>=6.5", "pytest-mock>=3.10", "covdefaults>=2.2"]
+optional-dependencies.test = ["coverage>=6.5", "pytest-mock>=3.10"]
 keywords = ["pytest", "env"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -39,11 +39,12 @@ version.source = "vcs"
 line-length = 120
 
 [tool.coverage]
-source = ["${_COVERAGE_SRC}", "${_COVERAGE_TEST}"]
+run.source = ["pytest_env", "tests"]
 run.dynamic_context = "test_function"
-run.plugins = ["covdefaults"]
+run.branch = true
 run.parallel = true
-report.fail_under = 100
+report.fail_under = 92
+report.show_missing = true
 html.show_contexts = true
 html.skip_covered = false
 paths.source = [

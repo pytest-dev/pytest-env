@@ -4,4 +4,4 @@ import os
 
 
 def test_works() -> None:
-    assert "MAGIC" not in os.environ
+    assert os.environ["MAGIC"] == os.environ["_PATCH"]
