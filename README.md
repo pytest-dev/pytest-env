@@ -38,7 +38,7 @@ env =
     D:RUN_ENV=test
 ```
 
-You can also use `R:` (raw) prefix if you wish to have curly bracket characters inside the env variable:
+You can also use `R:` (raw) prefix if you wish to have curly bracket characters inside the env variable (Note: you can combine flags, e.g. `D:R:`):
 
 ```ini
 [pytest]
