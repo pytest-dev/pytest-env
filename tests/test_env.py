@@ -26,7 +26,7 @@ all_test_cases = [
         expected_env_vars={"MAGIC": "alpha"}
     ),
     TestCase(
-        name="test_given_existing_env_var_and_returns_new_value",
+        name="test_given_existing_env_var_returns_new_value",
         existing_env_vars={"MAGIC": "alpha"},
         ini_contents="[pytest]\nenv = MAGIC=beta",
         expected_env_vars={"MAGIC": "beta"}
