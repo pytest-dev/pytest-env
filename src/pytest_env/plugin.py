@@ -13,7 +13,7 @@ _ALLOWED_FLAGS = (_DEFAULT_FLAG, _RAW_FLAG)
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add section to configuration files."""
-    help_msg = "a line separated list of environment variables of the form NAME=VALUE."
+    help_msg = "a line separated list of environment variables " "of the form NAME=VALUE."
 
     parser.addini("env", type="linelist", help=help_msg, default=[])
 
@@ -44,17 +44,25 @@ def pytest_load_initial_conftests(
         # "raw" value (skip replacing environment
         # variables in a value). Use this to allow
         # curly bracket characters in a value.
-        use_raw_value = _RAW_FLAG in flags
+        rkey = key.split("R:")
+        use_raw_value = False
 
-        # use D: as a way to designate a default value
-        # that will only override env variables if they
-        # do not exist already
-        use_default_value = _DEFAULT_FLAG in flags
+        if len(rkey) == 2:
+            key = rkey[1]
+            use_raw_value = True
 
         # Replace environment variables in value. for instance:
         # TEST_DIR={USER}/repo_test_dir.
         if not use_raw_value:
             value = value.format(**os.environ)
 
-        if not use_default_value or key not in os.environ:
+        # use D: as a way to designate a default value that will only override env variables if they do not exist
+        default_key = key.split("D:")
+        default_val = False
+
+        if len(default_key) == 2:
+            key = default_key[1]
+            default_val = True
+
+        if not default_val or key not in os.environ:
             os.environ[key] = value
