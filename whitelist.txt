@@ -1,12 +1,11 @@
 addini
 addoption
 conftests
-copy2
-dkey
 getini
 hookimpl
 repo
 runpytest
+setenv
 testdir
 tmpdir
 tryfirst
