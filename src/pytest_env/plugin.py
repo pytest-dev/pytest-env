@@ -2,14 +2,15 @@
 from __future__ import annotations
 
 import os
+from typing import Final
 
 import pytest
 
+_DEFAULT_FLAG: Final = 'D'
+_RAW_FLAG: Final = 'R'
 
-_DEFAULT_FLAG = 'D'
-_RAW_FLAG = 'R'
+_ALLOWED_FLAGS: Final = (_DEFAULT_FLAG, _RAW_FLAG)
 
-_ALLOWED_FLAGS = (_DEFAULT_FLAG, _RAW_FLAG)
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add section to configuration files."""
@@ -20,7 +21,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 @pytest.hookimpl(tryfirst=True)  # type: ignore # untyped decorator
 def pytest_load_initial_conftests(
-    args: list[str], early_config: pytest.Config, parser: pytest.Parser  # noqa: U100
+        args: list[str], early_config: pytest.Config, parser: pytest.Parser  # noqa: U100
 ) -> None:
     """Load environment variables from configuration files."""
     for e in early_config.getini("env"):
