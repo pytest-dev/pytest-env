@@ -13,7 +13,12 @@ else:  # pragma: no cover (<py38)
 
 _DEFAULT_FLAG: Final[str] = "D"
 _RAW_FLAG: Final[str] = "R"
-_ALLOWED_FLAGS: Final[set[str]] = {_DEFAULT_FLAG, _RAW_FLAG}
+
+# Only used for testing purposes
+_TEST1_FLAG: Final[str] = "__PYTEST1__"
+_TEST2_FLAG: Final[str] = "__PYTEST2__"
+
+_ALLOWED_FLAGS: Final[set[str]] = {_DEFAULT_FLAG, _RAW_FLAG, _TEST1_FLAG, _TEST2_FLAG}
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -31,25 +36,24 @@ def pytest_load_initial_conftests(
         part = line.partition("=")
         # INI key consists of flags and of the env variable key
         # For example D:R:NAME=VAL has two flags (R and D), NAME key, and VAL value
-        ini_key = part[0].strip()
         value = part[2].strip()
+        ini_key_parts = part[0].split(":")
+        flags = set(k.strip().upper() for k in ini_key_parts[:-1])
+        key = ini_key_parts[-1].strip()
 
-        ini_key_parts = ini_key.split(":")
-        flags = ini_key_parts[:-1]
 
-        invalid_flags = set(flags) - _ALLOWED_FLAGS
-        if invalid_flags:
-            raise Exception(f"Unrecognized flags {','.join(sorted(invalid_flags))}")
-
-        key = ini_key_parts[-1]
 
         # use R: as a way to designate whether to use "raw" value (skip replacing environment variables in a value).
         # Use this to allow curly bracket characters in a value.
-        use_raw_value = _RAW_FLAG in flags
+        use_raw_value = _RAW_FLAG.upper() in flags
 
         # use D: as a way to designate a default value that will only override env variables if they do not exist
         # already
-        use_default_value = _DEFAULT_FLAG in flags
+        use_default_value = _DEFAULT_FLAG.upper() in flags
+
+        # Only used for testing purposes
+        if _TEST1_FLAG.upper() in flags and _TEST2_FLAG.upper() in flags:
+            value += "_success_both_flags_found"
 
         # Replace environment variables in value. for instance: TEST_DIR={USER}/repo_test_dir.
         if not use_raw_value:

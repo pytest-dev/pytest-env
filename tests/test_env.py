@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -10,10 +12,17 @@ import pytest
     ("env", "ini", "expected_env"),
     [
         pytest.param(
-            {},  # empty dict means no preexisting environment variables
+            {},
             "[pytest]\nenv = MAGIC=alpha",
             {"MAGIC": "alpha"},
             id="new key, add to env",
+        ),
+        pytest.param(
+            # This test also tests for non-interference of env variables between different tests
+            {},
+            "[pytest]\nenv = d:MAGIC=beta",
+            {"MAGIC": "beta"},
+            id="D flag, add to env",
         ),
         pytest.param(
             {"MAGIC": "alpha"},
@@ -46,28 +55,45 @@ import pytest
             id="incremental interpolation",
         ),
         pytest.param(
-            {"MAGIC": "alpha"},
-            "[pytest]\nenv = D:R:MAGIC=beta",
-            {"MAGIC": "alpha"},
+            {},
+            "[pytest]\nenv = __PYTEST1__:__PYTEST2__:D:RESULT=result",
+            {"RESULT": "result_success_both_flags_found"},
             id="two flags",
         ),
         pytest.param(
-            {"MAGIC": "alpha"},
-            "[pytest]\nenv = R:D:MAGIC=beta",
-            {"MAGIC": "alpha"},
+            {},
+            "[pytest]\nenv = __PYTEST2__:__PYTEST1__:RESULT=reversed",
+            {"RESULT": "reversed_success_both_flags_found"},
             id="two flags, reversed",
+        ),
+        pytest.param(
+            {},
+            "[pytest]\nenv = __pytest1__:__pytest2__:RESULT=lower",
+            {"RESULT": "lower_success_both_flags_found"},
+            id="lowercase flags",
+        ),
+        pytest.param(
+            {},
+            "[pytest]\nenv =  __pytest1__  :  __pytest2__  :  RESULT  =  spaces",
+            {"RESULT": "spaces_success_both_flags_found"},
+            id="whitespace is ignored",
+        ),
+        pytest.param(
+            {"MAGIC": "zero"},
+            "",
+            {"MAGIC": "zero"},
+            id="empty ini works",
         ),
     ],
 )
 def test_env(testdir: pytest.Testdir, env: dict[str, str], ini: str, expected_env: dict[str, str],
              request: pytest.FixtureRequest) -> None:
-    for env_var, val in env.items():
-        testdir.monkeypatch.setenv(env_var, val)
-    testdir.monkeypatch.setenv("_TEST_ENV", repr(expected_env))
+    env = {**env, "_TEST_ENV": repr(expected_env)}
+    # monkeypatch persists env variables across parametrized tests, therefore using an alternative approach:
+    with mock.patch.dict(os.environ, env, clear=True):
+        test_name = re.sub(r'\W|^(?=\d)', '_', request.node.callspec.id).lower()
+        Path(str(testdir.tmpdir / f"test_{test_name}.py")).symlink_to(Path(__file__).parent / "template.py")
+        (testdir.tmpdir / "pytest.ini").write_text(ini, encoding="utf-8")
 
-    test_name = re.sub(r'\W|^(?=\d)', '_', request.node.callspec.id).lower()
-    Path(str(testdir.tmpdir / f"test_{test_name}.py")).symlink_to(Path(__file__).parent / "template.py")
-    (testdir.tmpdir / "pytest.ini").write_text(ini, encoding="utf-8")
-
-    result = testdir.runpytest()
-    result.assert_outcomes(passed=1)
+        result = testdir.runpytest()
+        result.assert_outcomes(passed=1)
