@@ -13,49 +13,49 @@ from _pytest.fixtures import FixtureRequest
         {},  # empty dict means no preexisting environment variables
         "[pytest]\nenv = MAGIC=alpha",
         {"MAGIC": "alpha"},
-        id="When ini has a new key, Then it is added to env"
+        id="new key, add to env"
     ),
     pytest.param(
         {"MAGIC": "alpha"},
         "[pytest]\nenv = MAGIC=beta",
         {"MAGIC": "beta"},
-        id="When ini has a key which already exists in env, Then the env value is overwritten"
+        id="key exists in env, overwrite"
     ),
     pytest.param(
         {"MAGIC": "alpha"},
         "[pytest]\nenv = D:MAGIC=beta",
         {"MAGIC": "alpha"},
-        id="Given D flag, When ini has a key which already exists in env, Then the original env value is kept"
+        id="D exists, original val kept"
     ),
     pytest.param(
         {"PLANET": "world"},
         "[pytest]\nenv = MAGIC=hello_{PLANET}",
         {"MAGIC": "hello_world"},
-        id="When ini value has an env key between curly braces, Then the key's value is interpolated"
+        id="curly exist, interpolate var"
     ),
     pytest.param(
         {"PLANET": "world"},
         "[pytest]\nenv = R:MAGIC=hello_{PLANET}",
         {"MAGIC": "hello_{PLANET}"},
-        id="When ini key has R flag, Then ini value is not interpolated"
+        id="R exists, not interpolate var"
     ),
     pytest.param(
         {"MAGIC": "a"},
         "[pytest]\nenv = R:MAGIC={MAGIC}b\n D:MAGIC={MAGIC}c\n MAGIC={MAGIC}d",
         {"MAGIC": "{MAGIC}bd"},
-        id="When ini has repeating keys, Then values and flags are evaluated separately and incrementally"
+        id="incremental interpolation"
     ),
     pytest.param(
         {"MAGIC": "alpha"},
         "[pytest]\nenv = D:R:MAGIC=beta",
         {"MAGIC": "alpha"},
-        id="When ini key has two flags, Then both are applied"
+        id="two flags"
     ),
     pytest.param(
         {"MAGIC": "alpha"},
         "[pytest]\nenv = R:D:MAGIC=beta",
         {"MAGIC": "alpha"},
-        id="When ini key has two flags (in reverse order), Then both are applied"
+        id="two flags, reversed"
     ),
 ])
 def test_cases(testdir: pytest.Testdir, existing_env_vars: Dict[str, str], ini_contents: str,

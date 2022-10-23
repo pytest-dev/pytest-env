@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 
 
-def test_when_ini_key_has_two_flags__in_reverse_order___then_both_are_applied() -> None:
+def test_new_key__add_to_env() -> None:
     expected_env_vars = {'MAGIC': 'alpha'}
     for key, expected_val in expected_env_vars.items():
         assert os.environ[key] == expected_val, f'Assertion failed for key {key}'
