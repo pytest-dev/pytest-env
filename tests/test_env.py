@@ -24,7 +24,7 @@ import pytest
             id="two new keys, add to env",
         ),
         pytest.param(
-            # This test also tests for non-interference of env variables between different tests
+            # This test also tests for non-interference of env variables between this test and tests above
             {},
             "[pytest]\nenv = d:MAGIC=beta",
             {"MAGIC": "beta"},
