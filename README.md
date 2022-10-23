@@ -8,7 +8,7 @@ versions](https://img.shields.io/pypi/pyversions/pytest-env.svg)](https://pypi.o
 black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Downloads](https://pepy.tech/badge/pytest-env/month)](https://pepy.tech/project/pytest-env/month)
 
-This is a `pytest` plugin that enables you to set environment variables in the pytest.ini file.
+This is a `pytest` plugin that enables you to set environment variables in a pytest.ini or pyproject.toml file.
 
 ## Installation
 
