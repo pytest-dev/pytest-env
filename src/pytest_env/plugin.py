@@ -8,7 +8,7 @@ import pytest
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add section to configuration files."""
-    help_msg = "a line separated list of environment variables of the form NAME=VALUE."
+    help_msg = "a line separated list of environment variables of the form (FLAG:)NAME=VALUE"
     parser.addini("env", type="linelist", help=help_msg, default=[])
 
 

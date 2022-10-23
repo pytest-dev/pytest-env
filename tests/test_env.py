@@ -95,12 +95,12 @@ import pytest
 def test_env(
     testdir: pytest.Testdir, env: dict[str, str], ini: str, expected_env: dict[str, str], request: pytest.FixtureRequest
 ) -> None:
-    env = {**env, "_TEST_ENV": repr(expected_env)}
-    # monkeypatch persists env variables across parametrized tests, therefore using an alternative approach:
-    with mock.patch.dict(os.environ, env, clear=True):
-        test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
-        Path(str(testdir.tmpdir / f"test_{test_name}.py")).symlink_to(Path(__file__).parent / "template.py")
-        (testdir.tmpdir / "pytest.ini").write_text(ini, encoding="utf-8")
+    test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
+    Path(str(testdir.tmpdir / f"test_{test_name}.py")).symlink_to(Path(__file__).parent / "template.py")
+    (testdir.tmpdir / "pytest.ini").write_text(ini, encoding="utf-8")
 
+    # monkeypatch persists env variables across parametrized tests, therefore using mock.patch.dict
+    with mock.patch.dict(os.environ, {**env, "_TEST_ENV": repr(expected_env)}, clear=True):
         result = testdir.runpytest()
-        result.assert_outcomes(passed=1)
+
+    result.assert_outcomes(passed=1)
