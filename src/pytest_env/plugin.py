@@ -14,11 +14,7 @@ else:  # pragma: no cover (<py38)
 _DEFAULT_FLAG: Final[str] = "D"
 _RAW_FLAG: Final[str] = "R"
 
-# Only used for testing purposes
-_TEST1_FLAG: Final[str] = "__PYTEST1__"
-_TEST2_FLAG: Final[str] = "__PYTEST2__"
-
-_ALLOWED_FLAGS: Final[set[str]] = {_DEFAULT_FLAG, _RAW_FLAG, _TEST1_FLAG, _TEST2_FLAG}
+_ALLOWED_FLAGS: Final[set[str]] = {_DEFAULT_FLAG, _RAW_FLAG}
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -50,10 +46,6 @@ def pytest_load_initial_conftests(
         # use D: as a way to designate a default value that will only override env variables if they do not exist
         # already
         use_default_value = _DEFAULT_FLAG.upper() in flags
-
-        # Only used for testing purposes
-        if _TEST1_FLAG.upper() in flags and _TEST2_FLAG.upper() in flags:
-            value += "_success_both_flags_found"
 
         # Replace environment variables in value. for instance: TEST_DIR={USER}/repo_test_dir.
         if not use_raw_value:
