@@ -18,6 +18,12 @@ import pytest
             id="new key, add to env",
         ),
         pytest.param(
+            {},
+            "[pytest]\nenv = MAGIC=alpha\n SORCERY=beta",
+            {"MAGIC": "alpha", "SORCERY": "beta"},
+            id="two new keys, add to env",
+        ),
+        pytest.param(
             # This test also tests for non-interference of env variables between different tests
             {},
             "[pytest]\nenv = d:MAGIC=beta",
