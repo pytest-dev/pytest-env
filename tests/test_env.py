@@ -4,7 +4,6 @@ import re
 from pathlib import Path
 
 import pytest
-from _pytest.fixtures import FixtureRequest
 
 
 @pytest.mark.parametrize(
@@ -61,7 +60,7 @@ from _pytest.fixtures import FixtureRequest
     ],
 )
 def test_env(testdir: pytest.Testdir, env: dict[str, str], ini: str, expected_env: dict[str, str],
-             request: FixtureRequest) -> None:
+             request: pytest.FixtureRequest) -> None:
     for env_var, val in env.items():
         testdir.monkeypatch.setenv(env_var, val)
     testdir.monkeypatch.setenv("_TEST_ENV", repr(expected_env))
