@@ -2,14 +2,17 @@
 from __future__ import annotations
 
 import os
-from typing import Final, Tuple
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Final, Tuple
 
 import pytest
 
-_DEFAULT_FLAG: Final[str] = 'D'
-_RAW_FLAG: Final[str] = 'R'
+_DEFAULT_FLAG: "Final[str]" = 'D'
+_RAW_FLAG: "Final[str]" = 'R'
 
-_ALLOWED_FLAGS: Final[Tuple[str, ...]] = (_DEFAULT_FLAG, _RAW_FLAG)
+_ALLOWED_FLAGS: "Final[Tuple[str, ...]]" = (_DEFAULT_FLAG, _RAW_FLAG)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
