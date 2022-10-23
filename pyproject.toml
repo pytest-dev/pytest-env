@@ -12,7 +12,7 @@ urls.Homepage = "https://github.com/pytest-dev/pytest-env"
 urls.Source = "https://github.com/pytest-dev/pytest-env"
 urls.Tracker = "https://github.com/pytest-dev/pytest-env/issues"
 requires-python = ">=3.7"
-dependencies = ["pytest>=7.1.3", 'typing-extensions>=4.4; python_version < "3.8"']
+dependencies = ["pytest>=7.1.3"]
 optional-dependencies.test = ["coverage>=6.5", "pytest-mock>=3.10"]
 keywords = ["pytest", "env"]
 classifiers = [

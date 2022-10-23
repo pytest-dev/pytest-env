@@ -2,19 +2,8 @@
 from __future__ import annotations
 
 import os
-import sys
 
 import pytest
-
-if sys.version_info >= (3, 8):  # pragma: no cover (py38+)
-    from typing import Final
-else:  # pragma: no cover (<py38)
-    from typing_extensions import Final
-
-_DEFAULT_FLAG: Final[str] = "D"
-_RAW_FLAG: Final[str] = "R"
-
-_ALLOWED_FLAGS: Final[set[str]] = {_DEFAULT_FLAG, _RAW_FLAG}
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -29,27 +18,19 @@ def pytest_load_initial_conftests(
 ) -> None:
     """Load environment variables from configuration files."""
     for line in early_config.getini("env"):
-        part = line.partition("=")
-        # INI key consists of flags and of the env variable key
-        # For example D:R:NAME=VAL has two flags (R and D), NAME key, and VAL value
-        value = part[2].strip()
-        ini_key_parts = part[0].split(":")
-        flags = set(k.strip().upper() for k in ini_key_parts[:-1])
+
+        # INI lines e.g. D:R:NAME=VAL has two flags (R and D), NAME key, and VAL value
+        parts = line.partition("=")
+        ini_key_parts = parts[0].split(":")
+        flags = {k.strip().upper() for k in ini_key_parts[:-1]}
+        # R: is a way to designate whether to use raw value -> perform no transformation of the value
+        transform = "R" not in flags
+        # D: is a way to mark the value to be set only if it does not exist yet
+        skip_if_set = "D" in flags
         key = ini_key_parts[-1].strip()
+        value = parts[2].strip()
 
-
-
-        # use R: as a way to designate whether to use "raw" value (skip replacing environment variables in a value).
-        # Use this to allow curly bracket characters in a value.
-        use_raw_value = _RAW_FLAG.upper() in flags
-
-        # use D: as a way to designate a default value that will only override env variables if they do not exist
-        # already
-        use_default_value = _DEFAULT_FLAG.upper() in flags
-
-        # Replace environment variables in value. for instance: TEST_DIR={USER}/repo_test_dir.
-        if not use_raw_value:
-            value = value.format(**os.environ)
-
-        if not use_default_value or key not in os.environ:
-            os.environ[key] = value
+        if skip_if_set and key in os.environ:
+            continue
+        # transformation -> replace environment variables, e.g. TEST_DIR={USER}/repo_test_dir.
+        os.environ[key] = value.format(**os.environ) if transform else value
