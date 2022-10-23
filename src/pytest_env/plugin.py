@@ -2,26 +2,30 @@
 from __future__ import annotations
 
 import os
-from typing import Final
+import sys
 
 import pytest
 
-_DEFAULT_FLAG: Final = 'D'
-_RAW_FLAG: Final = 'R'
+if sys.version_info >= (3, 8):  # pragma: no cover (py38+)
+    from typing import Final
+else:  # pragma: no cover (<py38)
+    from typing_extensions import Final
 
-_ALLOWED_FLAGS: Final = (_DEFAULT_FLAG, _RAW_FLAG)
+
+_DEFAULT_FLAG: Final[str] = "D"
+_RAW_FLAG: Final[str] = "R"
+_ALLOWED_FLAGS: Final[set[str]] = {_DEFAULT_FLAG, _RAW_FLAG}
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add section to configuration files."""
     help_msg = "a line separated list of environment variables of the form NAME=VALUE."
-
     parser.addini("env", type="linelist", help=help_msg, default=[])
 
 
 @pytest.hookimpl(tryfirst=True)  # type: ignore # untyped decorator
 def pytest_load_initial_conftests(
-        args: list[str], early_config: pytest.Config, parser: pytest.Parser  # noqa: U100
+    args: list[str], early_config: pytest.Config, parser: pytest.Parser  # noqa: U100
 ) -> None:
     """Load environment variables from configuration files."""
     for line in early_config.getini("env"):
@@ -33,13 +37,11 @@ def pytest_load_initial_conftests(
 
         ini_key_parts = ini_key.split(":")
         flags = ini_key_parts[:-1]
-        print(flags)
-        for flag in flags:
-            if flag not in _ALLOWED_FLAGS:
-                raise Exception(
-                    'Flag "%s" is not recognized. '
-                    'Colons in variable names can only be used to denote flags.' % flag
-                )
+
+        invalid_flags = set(flags) - _ALLOWED_FLAGS
+        if invalid_flags:
+            raise Exception(f"Unrecognized flags {','.join(sorted(invalid_flags))}")
+
         key = ini_key_parts[-1]
 
         # use R: as a way to designate whether to use
