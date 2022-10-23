@@ -60,10 +60,12 @@ import pytest
         "[pytest]\nenv = R:D:MAGIC=beta",
         {"MAGIC": "alpha"}
     ),
-], ids=lambda testcase: testcase[0])
+])
 def test_cases(testdir: pytest.Testdir, name: str, existing_env_vars: Dict[str, str], ini_contents: str,
                expected_env_vars: Dict[str, str]) -> None:
     set_env_variables(testdir, expected_env_vars)
+    for env_var, val in expected_env_vars.items():
+        testdir.monkeypatch.setenv(env_var, val)
     write_to_files(testdir, name, ini_contents, expected_env_vars)
     result = testdir.runpytest()
     result.assert_outcomes(passed=1)
