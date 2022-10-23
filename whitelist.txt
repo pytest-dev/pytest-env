@@ -3,6 +3,7 @@ addoption
 conftests
 getini
 hookimpl
+py38
 repo
 runpytest
 setenv
