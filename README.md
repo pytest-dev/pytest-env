@@ -8,7 +8,7 @@ versions](https://img.shields.io/pypi/pyversions/pytest-env.svg)](https://pypi.o
 black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Downloads](https://pepy.tech/badge/pytest-env/month)](https://pepy.tech/project/pytest-env/month)
 
-This is a py.test plugin that enables you to set environment variables in the pytest.ini file.
+This is a `pytest` plugin that enables you to set environment variables in the pytest.ini file.
 
 ## Installation
 
@@ -20,7 +20,8 @@ pip install pytest-env
 
 ## Usage
 
-In your pytest.ini file add a key value pair with `env` as the key and the environment variables as a line separated list of `KEY=VALUE` entries.  The defined variables will be added to the environment before any tests are run:
+In your pytest.ini file add a key value pair with `env` as the key and the environment variables as a line separated
+list of `KEY=VALUE` entries. The defined variables will be added to the environment before any tests are run:
 
 ```ini
 [pytest]
@@ -28,6 +29,18 @@ env =
     HOME=~/tmp
     RUN_ENV=test
 ```
+
+Or with `pyproject.toml`:
+
+```toml
+[tool.pytest.ini_options]
+env = [
+    "HOME=~/tmp",
+    "RUN_ENV=test",
+]
+```
+
+### Only set if not already set
 
 You can use `D:` (default) as prefix if you don't want to override existing environment variables:
 
@@ -38,10 +51,23 @@ env =
     D:RUN_ENV=test
 ```
 
-Lastly, you can use existing environment variables using a python-like format:
+### Transformation
+
+You can use existing environment variables using a python-like format, these environment variables will be expended
+before setting the environment variable:
 
 ```ini
 [pytest]
 env =
     RUN_PATH=/run/path/{USER}
+```
+
+You can apply the `R:` prefix to keep the raw value and skip this transformation step (can combine with the `D:` flag,
+order is not important):
+
+```ini
+[pytest]
+env =
+    R:RUN_PATH=/run/path/{USER}
+    R:D:RUN_PATH_IF_NOT_SET=/run/path/{USER}
 ```

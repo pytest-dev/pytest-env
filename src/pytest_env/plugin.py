@@ -8,8 +8,7 @@ import pytest
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add section to configuration files."""
-    help_msg = "a line separated list of environment variables " "of the form NAME=VALUE."
-
+    help_msg = "a line separated list of environment variables of the form (FLAG:)NAME=VALUE"
     parser.addini("env", type="linelist", help=help_msg, default=[])
 
 
@@ -19,20 +18,19 @@ def pytest_load_initial_conftests(
 ) -> None:
     """Load environment variables from configuration files."""
     for line in early_config.getini("env"):
-        part = line.partition("=")
-        key = part[0].strip()
-        value = part[2].strip()
 
-        # Replace environment variables in value. for instance  TEST_DIR={USER}/repo_test_dir.
-        value = value.format(**os.environ)
+        # INI lines e.g. D:R:NAME=VAL has two flags (R and D), NAME key, and VAL value
+        parts = line.partition("=")
+        ini_key_parts = parts[0].split(":")
+        flags = {k.strip().upper() for k in ini_key_parts[:-1]}
+        # R: is a way to designate whether to use raw value -> perform no transformation of the value
+        transform = "R" not in flags
+        # D: is a way to mark the value to be set only if it does not exist yet
+        skip_if_set = "D" in flags
+        key = ini_key_parts[-1].strip()
+        value = parts[2].strip()
 
-        # use D: as a way to designate a default value that will only override env variables if they do not exist
-        default_key = key.split("D:")
-        default_val = False
-
-        if len(default_key) == 2:
-            key = default_key[1]
-            default_val = True
-
-        if not default_val or key not in os.environ:
-            os.environ[key] = value
+        if skip_if_set and key in os.environ:
+            continue
+        # transformation -> replace environment variables, e.g. TEST_DIR={USER}/repo_test_dir.
+        os.environ[key] = value.format(**os.environ) if transform else value

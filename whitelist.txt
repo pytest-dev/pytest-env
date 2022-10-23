@@ -1,11 +1,12 @@
 addini
 addoption
+callspec
 conftests
 getini
 hookimpl
+parametrized
 repo
 runpytest
-setenv
 testdir
 tmpdir
 tryfirst
