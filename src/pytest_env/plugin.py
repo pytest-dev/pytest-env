@@ -18,7 +18,6 @@ def pytest_load_initial_conftests(
 ) -> None:
     """Load environment variables from configuration files."""
     for line in early_config.getini("env"):
-
         # INI lines e.g. D:R:NAME=VAL has two flags (R and D), NAME key, and VAL value
         parts = line.partition("=")
         ini_key_parts = parts[0].split(":")
