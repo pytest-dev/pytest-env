@@ -2,7 +2,7 @@
 build-backend = "hatchling.build"
 requires = [
   "hatch-vcs>=0.3",
-  "hatchling>=1.12.2",
+  "hatchling>=1.13",
 ]
 
 [project]
@@ -31,10 +31,10 @@ dynamic = [
   "version",
 ]
 dependencies = [
-  "pytest>=7.2.1",
+  "pytest>=7.2.2",
 ]
 optional-dependencies.test = [
-  "coverage>=7.1",
+  "coverage>=7.2.2",
   "pytest-mock>=3.10",
 ]
 urls.Homepage = "https://github.com/pytest-dev/pytest-env"
