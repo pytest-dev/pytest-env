@@ -31,7 +31,7 @@ dynamic = [
   "version",
 ]
 dependencies = [
-  "pytest>=7.2.2",
+  "pytest>=7.3.1",
 ]
 optional-dependencies.test = [
   "coverage>=7.2.3",
