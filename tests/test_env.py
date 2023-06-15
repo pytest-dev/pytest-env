@@ -93,7 +93,11 @@ import pytest
     ],
 )
 def test_env(
-    testdir: pytest.Testdir, env: dict[str, str], ini: str, expected_env: dict[str, str], request: pytest.FixtureRequest
+    testdir: pytest.Testdir,
+    env: dict[str, str],
+    ini: str,
+    expected_env: dict[str, str],
+    request: pytest.FixtureRequest,
 ) -> None:
     tmp_dir = Path(str(testdir.tmpdir))
     test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
