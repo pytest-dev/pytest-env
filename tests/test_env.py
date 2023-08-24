@@ -104,8 +104,15 @@ def test_env(
     Path(str(tmp_dir / f"test_{test_name}.py")).symlink_to(Path(__file__).parent / "template.py")
     (tmp_dir / "pytest.ini").write_text(ini, encoding="utf-8")
 
+    new_env = {
+        **env,
+        "_TEST_ENV": repr(expected_env),
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_PLUGINS": "pytest_env.plugin",
+    }
+
     # monkeypatch persists env variables across parametrized tests, therefore using mock.patch.dict
-    with mock.patch.dict(os.environ, {**env, "_TEST_ENV": repr(expected_env)}, clear=True):
+    with mock.patch.dict(os.environ, new_env, clear=True):
         result = testdir.runpytest()
 
     result.assert_outcomes(passed=1)
