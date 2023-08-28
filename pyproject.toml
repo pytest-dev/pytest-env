@@ -2,7 +2,7 @@
 build-backend = "hatchling.build"
 requires = [
   "hatch-vcs>=0.3",
-  "hatchling>=1.17.1",
+  "hatchling>=1.18",
 ]
 
 [project]
@@ -15,7 +15,7 @@ keywords = [
 ]
 license.file = "LICENSE"
 maintainers = [{ name = "Bernát Gábor", email = "gaborjbernat@gmail.com" }]
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
@@ -23,7 +23,6 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.7",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
@@ -36,11 +35,11 @@ dynamic = [
   "version",
 ]
 dependencies = [
-  "pytest>=7.3.1",
+  "pytest>=7.4",
 ]
 optional-dependencies.test = [
-  "coverage>=7.2.7",
-  "pytest-mock>=3.10",
+  "coverage>=7.3",
+  "pytest-mock>=3.11.1",
 ]
 urls.Homepage = "https://github.com/pytest-dev/pytest-env"
 urls.Source = "https://github.com/pytest-dev/pytest-env"
@@ -58,7 +57,7 @@ line-length = 120
 [tool.ruff]
 select = ["ALL"]
 line-length = 120
-target-version = "py37"
+target-version = "py38"
 isort = {known-first-party = ["pytest_env"], required-imports = ["from __future__ import annotations"]}
 ignore = [
   "ANN101",  # no type annotation for self
