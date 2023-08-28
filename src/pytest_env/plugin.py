@@ -12,7 +12,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addini("env", type="linelist", help=help_msg, default=[])
 
 
-@pytest.hookimpl(tryfirst=True)  # type: ignore[misc]
+@pytest.hookimpl(tryfirst=True)
 def pytest_load_initial_conftests(
     args: list[str],  # noqa: ARG001
     early_config: pytest.Config,
