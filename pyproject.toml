@@ -7,7 +7,7 @@ requires = [
 
 [project]
 name = "pytest-env"
-description = "py.test plugin that allows you to add environment variables."
+description = "pytest plugin that allows you to add environment variables."
 readme = "README.md"
 keywords = [
   "env",
