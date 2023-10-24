@@ -20,6 +20,25 @@ pip install pytest-env
 
 ## Usage
 
+### Native form in `pyproject.toml`
+
+```toml
+[tool.pytest_env]
+HOME = "~/tmp"
+RUN_ENV = 1
+TRANSFORMED = {value = "{USER}/alpha", transform: true}
+SKIP_IF_SET = {value = "on", skip_if_set: true}
+```
+
+The `tool.pytest_env` tables keys are the environment variables keys to set. The right hands-ide of the assigment:
+
+- if an inline table you can set options via the `transform` or `skip_if_set` keys, while the `value` key holds the
+  value to set (or transform before setting). For transformation the variables you can use is other environment
+  variable,
+- otherwise the value to set for the environment variable to set (casted to a string).
+
+### Via pytest configurations
+
 In your pytest.ini file add a key value pair with `env` as the key and the environment variables as a line separated
 list of `KEY=VALUE` entries. The defined variables will be added to the environment before any tests are run:
 

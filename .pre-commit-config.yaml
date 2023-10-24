@@ -22,7 +22,7 @@ repos:
     rev: "1.2.0"
     hooks:
       - id: pyproject-fmt
-        additional_dependencies: ["tox>=4.10"]
+        additional_dependencies: ["tox>=4.11.3"]
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: "v3.0.3"
     hooks:
