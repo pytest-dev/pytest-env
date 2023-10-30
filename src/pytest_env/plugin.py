@@ -54,7 +54,7 @@ def _load_values(early_config: pytest.Config) -> Iterator[Entry]:
                 config = tomllib.load(file_handler)
                 if "tool" in config and "pytest_env" in config["tool"]:
                     has_toml_conf = True
-                    for key, entry in config["tool"]["pytest_env"].get("env", {}).items():
+                    for key, entry in config["tool"]["pytest_env"].items():
                         if isinstance(entry, dict):
                             value = str(entry["value"])
                             transform, skip_if_set = bool(entry.get("transform")), bool(entry.get("skip_if_set"))
