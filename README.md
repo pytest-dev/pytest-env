@@ -26,8 +26,8 @@ pip install pytest-env
 [tool.pytest_env]
 HOME = "~/tmp"
 RUN_ENV = 1
-TRANSFORMED = {value = "{USER}/alpha", transform: true}
-SKIP_IF_SET = {value = "on", skip_if_set: true}
+TRANSFORMED = {value = "{USER}/alpha", transform = true}
+SKIP_IF_SET = {value = "on", skip_if_set = true}
 ```
 
 The `tool.pytest_env` tables keys are the environment variables keys to set. The right hands-ide of the assigment:
