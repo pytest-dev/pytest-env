@@ -1,4 +1,5 @@
 """Adopt environment section in pytest configuration files."""
+
 from __future__ import annotations
 
 import os
