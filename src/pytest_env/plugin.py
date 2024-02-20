@@ -48,7 +48,7 @@ def pytest_load_initial_conftests(
 
 def _load_values(early_config: pytest.Config) -> Iterator[Entry]:
     has_toml_conf = False
-    for path in chain.from_iterable([[early_config.rootpath], early_config.rootpath.parents]):
+    for path in chain.from_iterable([[early_config.rootpath], early_config.rootpath.parents]):  # noqa: PLR1702
         toml_file = path / "pyproject.toml"
         if toml_file.exists():
             with toml_file.open("rb") as file_handler:
