@@ -158,7 +158,7 @@ def test_env_via_pytest(
         ),
     ],
 )
-def test_env_via_toml(  # noqa: PLR0913
+def test_env_via_toml(  # noqa: PLR0913, PLR0917
     testdir: pytest.Testdir,
     env: dict[str, str],
     toml: str,
