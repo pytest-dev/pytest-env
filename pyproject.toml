@@ -2,7 +2,7 @@
 build-backend = "hatchling.build"
 requires = [
   "hatch-vcs>=0.4",
-  "hatchling>=1.21.1",
+  "hatchling>=1.25",
 ]
 
 [project]
@@ -30,6 +30,7 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: Implementation :: CPython",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
@@ -37,13 +38,13 @@ dynamic = [
   "version",
 ]
 dependencies = [
-  "pytest>=8.0.1",
+  "pytest>=8.3.2",
   "tomli>=2.0.1; python_version<'3.11'",
 ]
 optional-dependencies.test = [
   "covdefaults>=2.3",
-  "coverage>=7.4.2",
-  "pytest-mock>=3.12",
+  "coverage>=7.6.1",
+  "pytest-mock>=3.14",
 ]
 urls.Homepage = "https://github.com/pytest-dev/pytest-env"
 urls.Source = "https://github.com/pytest-dev/pytest-env"
@@ -92,6 +93,9 @@ lint.preview = true
 builtin = "clear,usage,en-GB_to_en-US"
 write-changes = true
 count = true
+
+[tool.pyproject-fmt]
+max_supported_python = "3.13"
 
 [tool.coverage]
 run.source = [

@@ -20,6 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         py:
+          - "3.13"
           - "3.12"
           - "3.11"
           - "3.10"
@@ -50,10 +51,10 @@ jobs:
           with codecs.open(os.environ["GITHUB_ENV"], "a", "utf-8") as file_handler:
                file_handler.write(env)
         shell: python
-      - name: Setup test suite
-        run: tox -vv --notest
-      - name: Run test suite
-        run: tox --skip-pkg-install
+      - name: setup test suite
+        run: tox run -vv --notest --skip-missing-interpreters false -e ${{ matrix.py }}
+      - name: run test suite
+        run: tox run  --skip-pkg-install -e ${{ matrix.py }}
         env:
           CI_RUN: "yes"
 
@@ -78,8 +79,8 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install tox
-        run: python -m pip install tox
+        run: python -m pip install tox-uv
       - name: Setup test suite
-        run: tox -vv --notest -e ${{ matrix.tox_env }}
+        run: tox -vv --notest --skip-missing-interpreters false -e ${{ matrix.tox_env }}
       - name: Run test suite
         run: tox --skip-pkg-install -e ${{ matrix.tox_env }}
