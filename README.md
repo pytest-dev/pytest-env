@@ -3,9 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/pytest-env?style=flat-square)](https://pypi.org/project/pytest-env/)
 [![Supported Python
 versions](https://img.shields.io/pypi/pyversions/pytest-env.svg)](https://pypi.org/project/pytest-env/)
-[![check](https://github.com/pytest-dev/pytest-env/actions/workflows/check.yml/badge.svg)](https://github.com/pytest-dev/pytest-env/actions/workflows/check.yml)
-[![Code style:
-black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![check](https://github.com/pytest-dev/pytest-env/actions/workflows/check.yaml/badge.svg)](https://github.com/pytest-dev/pytest-env/actions/workflows/check.yaml)
 [![Downloads](https://static.pepy.tech/badge/pytest-env/month)](https://pepy.tech/project/pytest-env)
 
 This is a `pytest` plugin that enables you to set environment variables in a `pytest.ini` or `pyproject.toml` file.
