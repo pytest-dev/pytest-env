@@ -38,10 +38,10 @@ dynamic = [
   "version",
 ]
 dependencies = [
-  "pytest>=8.3.2",
+  "pytest>=8.3.3",
   "tomli>=2.0.1; python_version<'3.11'",
 ]
-optional-dependencies.test = [
+optional-dependencies.testing = [
   "covdefaults>=2.3",
   "coverage>=7.6.1",
   "pytest-mock>=3.14",
