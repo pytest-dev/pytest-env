@@ -38,7 +38,7 @@ dynamic = [
   "version",
 ]
 dependencies = [
-  "pytest>=8.2.0",
+  "pytest>=8.2",
   "tomli>=2.0.1; python_version<'3.11'",
 ]
 optional-dependencies.testing = [
