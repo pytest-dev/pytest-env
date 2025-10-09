@@ -6,9 +6,12 @@ import os
 import sys
 from dataclasses import dataclass
 from itertools import chain
-from typing import Iterator
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 if sys.version_info >= (3, 11):  # pragma: >=3.11 cover
     import tomllib
