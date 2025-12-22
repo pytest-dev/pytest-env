@@ -119,51 +119,117 @@ def test_env_via_pytest(
 
 
 @pytest.mark.parametrize(
-    ("env", "toml", "ini", "expected_env"),
+    ("env", "pyproject_toml", "pytest_toml", "ini", "expected_env", "pytest_toml_name"),
     [
         pytest.param(
             {},
             '[tool.pytest.ini_options]\nenv = ["MAGIC=toml", "MAGIC_2=toml2"]',
+            "",
             "[pytest]\nenv = MAGIC=ini\n MAGIC_2=ini2",
             {"MAGIC": "ini", "MAGIC_2": "ini2"},
-            id="ini over toml ini_options",
+            None,
+            id="ini over pyproject toml ini_options",
         ),
         pytest.param(
             {},
             '[tool.pytest.ini_options]\nenv = ["MAGIC=toml", "MAGIC_2=toml2"]',
             "",
+            "",
             {"MAGIC": "toml", "MAGIC_2": "toml2"},
-            id="toml via ini_options",
+            None,
+            id="pyproject toml via ini_options",
         ),
         pytest.param(
             {},
             '[tool.pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"',
             "",
+            "",
             {"MAGIC": "1", "MAGIC_2": "toml2"},
-            id="toml native",
+            None,
+            id="pyproject toml native",
+        ),
+        pytest.param(
+            {},
+            "",
+            '[pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"',
+            "",
+            {"MAGIC": "1", "MAGIC_2": "toml2"},
+            "pytest.toml",
+            id="pytest toml",
+        ),
+        pytest.param(
+            {},
+            "",
+            '[pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"',
+            "",
+            {"MAGIC": "1", "MAGIC_2": "toml2"},
+            ".pytest.toml",
+            id="hidden pytest toml",
         ),
         pytest.param(
             {},
             '[tool.pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"',
+            "",
             "[pytest]\nenv = MAGIC=ini\n MAGIC_2=ini2",
             {"MAGIC": "1", "MAGIC_2": "toml2"},
-            id="toml native over ini",
+            None,
+            id="pyproject toml native over ini",
+        ),
+        pytest.param(
+            {},
+            "",
+            '[pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"',
+            "[pytest]\nenv = MAGIC=ini\n MAGIC_2=ini2",
+            {"MAGIC": "1", "MAGIC_2": "toml2"},
+            "pytest.toml",
+            id="pytest toml native over ini",
+        ),
+        pytest.param(
+            {},
+            "",
+            '[pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"',
+            "[pytest]\nenv = MAGIC=ini\n MAGIC_2=ini2",
+            {"MAGIC": "1", "MAGIC_2": "toml2"},
+            ".pytest.toml",
+            id="hidden pytest toml native over ini",
         ),
         pytest.param(
             {},
             '[tool.pytest_env]\nMAGIC = {value = "toml", "transform"= true, "skip_if_set" = true}',
             "",
+            "",
             {"MAGIC": "toml"},
-            id="toml inline table",
+            None,
+            id="pyproject toml inline table",
+        ),
+        pytest.param(
+            {},
+            "",
+            '[pytest_env]\nMAGIC = {value = "toml", "transform"= true, "skip_if_set" = true}',
+            "",
+            {"MAGIC": "toml"},
+            "pytest.toml",
+            id="pytest toml inline table",
+        ),
+        pytest.param(
+            {},
+            '[tool.pytest_env]\nMAGIC = 1\nMAGIC_2 = "pyproject"',
+            '[pytest_env]\nMAGIC = 1\nMAGIC_2 = "pytest"',
+            "",
+            {"MAGIC": "1", "MAGIC_2": "pytest"},
+            "pytest.toml",
+            id="pytest toml over pyproject toml",
         ),
     ],
 )
 def test_env_via_toml(  # noqa: PLR0913, PLR0917
     testdir: pytest.Testdir,
     env: dict[str, str],
-    toml: str,
+    pyproject_toml: str,
+    pytest_toml: str,
     ini: str,
     expected_env: dict[str, str],
+    pytest_toml_name: str | None,
     request: pytest.FixtureRequest,
 ) -> None:
     tmp_dir = Path(str(testdir.tmpdir))
@@ -171,7 +237,10 @@ def test_env_via_toml(  # noqa: PLR0913, PLR0917
     Path(str(tmp_dir / f"test_{test_name}.py")).symlink_to(Path(__file__).parent / "template.py")
     if ini:
         (tmp_dir / "pytest.ini").write_text(ini, encoding="utf-8")
-    (tmp_dir / "pyproject.toml").write_text(toml, encoding="utf-8")
+    if pyproject_toml:
+        (tmp_dir / "pyproject.toml").write_text(pyproject_toml, encoding="utf-8")
+    if pytest_toml and pytest_toml_name:
+        (tmp_dir / pytest_toml_name).write_text(pytest_toml, encoding="utf-8")
 
     new_env = {
         **env,
@@ -187,8 +256,9 @@ def test_env_via_toml(  # noqa: PLR0913, PLR0917
     result.assert_outcomes(passed=1)
 
 
-def test_env_via_toml_bad(testdir: pytest.Testdir) -> None:
-    toml_file = Path(str(testdir.tmpdir)) / "pyproject.toml"
+@pytest.mark.parametrize("toml_name", ["pytest.toml", ".pytest.toml", "pyproject.toml"])
+def test_env_via_pyproject_toml_bad(testdir: pytest.Testdir, toml_name: str) -> None:
+    toml_file = Path(str(testdir.tmpdir)) / toml_name
     toml_file.write_text("bad toml", encoding="utf-8")
 
     result = testdir.runpytest()

@@ -6,7 +6,7 @@ versions](https://img.shields.io/pypi/pyversions/pytest-env.svg)](https://pypi.o
 [![check](https://github.com/pytest-dev/pytest-env/actions/workflows/check.yaml/badge.svg)](https://github.com/pytest-dev/pytest-env/actions/workflows/check.yaml)
 [![Downloads](https://static.pepy.tech/badge/pytest-env/month)](https://pepy.tech/project/pytest-env)
 
-This is a `pytest` plugin that enables you to set environment variables in a `pytest.ini` or `pyproject.toml` file.
+This is a `pytest` plugin that enables you to set environment variables in `pytest.ini`, `pyproject.toml`, `pytest.toml` or `.pytest.toml` files.
 
 ## Installation
 
@@ -18,7 +18,14 @@ pip install pytest-env
 
 ## Usage
 
-### Native form in `pyproject.toml`
+### Native form in `pyproject.toml`, `pytest.toml` and `.pytest.toml`
+
+> [!NOTE]
+> `pytest.toml` and `.pytest.toml` is only supported on Pytest 9.0+.
+
+Native form takes precedence over the `pytest.ini` form. `pytest.toml` takes precedence over `.pytest.toml`, and that takes precedence over `pyproject.toml`.
+
+In `pyproject.toml`:
 
 ```toml
 [tool.pytest_env]
@@ -28,7 +35,17 @@ TRANSFORMED = {value = "{USER}/alpha", transform = true}
 SKIP_IF_SET = {value = "on", skip_if_set = true}
 ```
 
-The `tool.pytest_env` tables keys are the environment variables keys to set. The right hand side of the assignment:
+In `pytest.toml` (or `.pytest.toml`):
+
+```toml
+[pytest_env]
+HOME = "~/tmp"
+RUN_ENV = 1
+TRANSFORMED = {value = "{USER}/alpha", transform = true}
+SKIP_IF_SET = {value = "on", skip_if_set = true}
+```
+
+The `tool.pytest_env` (`pytest_env` in `pytest.toml` and `.pytest.toml`) tables keys are the environment variables keys to set. The right hand side of the assignment:
 
 - if an inline table you can set options via the `transform` or `skip_if_set` keys, while the `value` key holds the
   value to set (or transform before setting). For transformation the variables you can use is other environment
