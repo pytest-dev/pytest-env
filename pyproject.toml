@@ -94,20 +94,16 @@ count = true
 max_supported_python = "3.13"
 
 [tool.coverage]
-run.source = [
-  "pytest_env",
-  "tests",
-]
-run.dynamic_context = "test_function"
 run.branch = true
+run.dynamic_context = "test_function"
 run.parallel = true
 run.plugins = [
   "covdefaults",
 ]
-report.fail_under = 100
-report.show_missing = true
-html.show_contexts = true
-html.skip_covered = false
+run.source = [
+  "pytest_env",
+  "tests",
+]
 paths.source = [
   "src",
   ".tox*/*/lib/python*/site-packages",
@@ -116,6 +112,10 @@ paths.source = [
   "*/src",
   "*\\src",
 ]
+report.fail_under = 100
+report.show_missing = true
+html.show_contexts = true
+html.skip_covered = false
 
 [tool.mypy]
 python_version = "3.11"
