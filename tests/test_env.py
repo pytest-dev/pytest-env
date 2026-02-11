@@ -141,6 +141,15 @@ def test_env_via_pytest(
         ),
         pytest.param(
             {},
+            '[tool.pytest]\nenv = ["MAGIC=toml", "MAGIC_2=toml2"]',
+            "",
+            "",
+            {"MAGIC": "toml", "MAGIC_2": "toml2"},
+            None,
+            id="pyproject toml via tool.pytest",
+        ),
+        pytest.param(
+            {},
             '[tool.pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"',
             "",
             "",
