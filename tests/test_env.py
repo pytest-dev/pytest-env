@@ -3,15 +3,11 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING
 from unittest import mock
 
 import pytest
 
-from pytest_env.plugin import _env_files_from_toml  # noqa: PLC2701
-
-if TYPE_CHECKING:
-    import pytest_mock
+from pytest_env.plugin import _load_toml_config  # noqa: PLC2701
 
 
 @pytest.mark.parametrize(
@@ -117,16 +113,15 @@ if TYPE_CHECKING:
     ],
 )
 def test_env_via_pytest(
-    testdir: pytest.Testdir,
+    pytester: pytest.Pytester,
     env: dict[str, str],
     ini: str,
     expected_env: dict[str, str],
     request: pytest.FixtureRequest,
 ) -> None:
-    tmp_dir = Path(str(testdir.tmpdir))
     test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
-    Path(str(tmp_dir / f"test_{test_name}.py")).symlink_to(Path(__file__).parent / "template.py")
-    (tmp_dir / "pytest.ini").write_text(ini, encoding="utf-8")
+    (pytester.path / f"test_{test_name}.py").symlink_to(Path(__file__).parent / "template.py")
+    (pytester.path / "pytest.ini").write_text(ini, encoding="utf-8")
 
     new_env = {
         **env,
@@ -135,9 +130,8 @@ def test_env_via_pytest(
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
 
-    # monkeypatch persists env variables across parametrized tests, therefore using mock.patch.dict
     with mock.patch.dict(os.environ, new_env, clear=True):
-        result = testdir.runpytest()
+        result = pytester.runpytest()
 
     result.assert_outcomes(passed=1)
 
@@ -283,7 +277,7 @@ def test_env_via_pytest(
     ],
 )
 def test_env_via_toml(  # noqa: PLR0913, PLR0917
-    testdir: pytest.Testdir,
+    pytester: pytest.Pytester,
     env: dict[str, str],
     pyproject_toml: str,
     pytest_toml: str,
@@ -292,23 +286,22 @@ def test_env_via_toml(  # noqa: PLR0913, PLR0917
     pytest_toml_name: str | None,
     request: pytest.FixtureRequest,
 ) -> None:
-    tmp_dir = Path(str(testdir.tmpdir))
     test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
     if pyproject_toml:
-        (tmp_dir / "pyproject.toml").write_text(pyproject_toml, encoding="utf-8")
+        (pytester.path / "pyproject.toml").write_text(pyproject_toml, encoding="utf-8")
     if pytest_toml and pytest_toml_name:
-        toml_path = tmp_dir / pytest_toml_name
+        toml_path = pytester.path / pytest_toml_name
         toml_path.parent.mkdir(parents=True, exist_ok=True)
         toml_path.write_text(pytest_toml, encoding="utf-8")
 
     if pytest_toml_name and "/" in pytest_toml_name:
-        test_dir = tmp_dir / Path(pytest_toml_name).parent
+        test_dir = pytester.path / Path(pytest_toml_name).parent
     else:
-        test_dir = tmp_dir
+        test_dir = pytester.path
         if ini:
-            (tmp_dir / "pytest.ini").write_text(ini, encoding="utf-8")
+            (pytester.path / "pytest.ini").write_text(ini, encoding="utf-8")
 
-    Path(str(test_dir / f"test_{test_name}.py")).symlink_to(Path(__file__).parent / "template.py")
+    (test_dir / f"test_{test_name}.py").symlink_to(Path(__file__).parent / "template.py")
 
     new_env = {
         **env,
@@ -317,9 +310,8 @@ def test_env_via_toml(  # noqa: PLR0913, PLR0917
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
 
-    # monkeypatch persists env variables across parametrized tests, therefore using mock.patch.dict
     with mock.patch.dict(os.environ, new_env, clear=True):
-        result = testdir.runpytest(str(test_dir))
+        result = pytester.runpytest(str(test_dir))
 
     result.assert_outcomes(passed=1)
 
@@ -458,7 +450,7 @@ def test_env_via_toml(  # noqa: PLR0913, PLR0917
     ],
 )
 def test_env_via_env_file(  # noqa: PLR0913, PLR0917
-    testdir: pytest.Testdir,
+    pytester: pytest.Pytester,
     env: dict[str, str],
     env_file_content: str,
     config: str,
@@ -466,13 +458,12 @@ def test_env_via_env_file(  # noqa: PLR0913, PLR0917
     config_type: str,
     request: pytest.FixtureRequest,
 ) -> None:
-    tmp_dir = Path(str(testdir.tmpdir))
     test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
-    Path(str(tmp_dir / f"test_{test_name}.py")).symlink_to(Path(__file__).parent / "template.py")
+    (pytester.path / f"test_{test_name}.py").symlink_to(Path(__file__).parent / "template.py")
     if env_file_content:
-        (tmp_dir / ".env").write_text(env_file_content, encoding="utf-8")
+        (pytester.path / ".env").write_text(env_file_content, encoding="utf-8")
     config_file_names = {"pyproject": "pyproject.toml", "pytest.toml": "pytest.toml", "ini": "pytest.ini"}
-    (tmp_dir / config_file_names[config_type]).write_text(config, encoding="utf-8")
+    (pytester.path / config_file_names[config_type]).write_text(config, encoding="utf-8")
 
     new_env = {
         **env,
@@ -482,24 +473,24 @@ def test_env_via_env_file(  # noqa: PLR0913, PLR0917
     }
 
     with mock.patch.dict(os.environ, new_env, clear=True):
-        result = testdir.runpytest()
+        result = pytester.runpytest()
 
     result.assert_outcomes(passed=1)
 
 
-def test_env_files_from_toml_bad_toml(tmp_path: Path, mocker: pytest_mock.MockerFixture) -> None:
-    (tmp_path / "pyproject.toml").write_text("bad toml", encoding="utf-8")
-    config = mocker.MagicMock()
-    config.rootpath = tmp_path
-    assert _env_files_from_toml(config) == []
+def test_env_files_from_toml_bad_toml(tmp_path: Path) -> None:
+    toml_file = tmp_path / "pyproject.toml"
+    toml_file.write_text("bad toml", encoding="utf-8")
+    with pytest.raises(Exception, match="Expected '=' after a key"):
+        _load_toml_config(toml_file)
 
 
 @pytest.mark.parametrize("toml_name", ["pytest.toml", ".pytest.toml", "pyproject.toml"])
-def test_env_via_pyproject_toml_bad(testdir: pytest.Testdir, toml_name: str) -> None:
-    toml_file = Path(str(testdir.tmpdir)) / toml_name
+def test_env_via_pyproject_toml_bad(pytester: pytest.Pytester, toml_name: str) -> None:
+    toml_file = pytester.path / toml_name
     toml_file.write_text("bad toml", encoding="utf-8")
 
-    result = testdir.runpytest()
+    result = pytester.runpytest()
     assert result.ret == 4
     assert result.errlines == [
         f"ERROR: {toml_file}: Expected '=' after a key in a key/value pair (at line 1, column 5)",

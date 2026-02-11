@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import sys
 from dataclasses import dataclass
-from itertools import chain
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -39,6 +38,24 @@ class Entry:
     unset: bool = False
 
 
+def _find_toml_config(early_config: pytest.Config) -> Path | None:
+    """Find TOML config file by checking inipath first, then walking up the tree."""  # noqa: DOC201
+    if (
+        early_config.inipath
+        and early_config.inipath.suffix == ".toml"
+        and early_config.inipath.name in {"pytest.toml", ".pytest.toml", "pyproject.toml"}
+    ):
+        return early_config.inipath
+
+    start_path = early_config.inipath.parent if early_config.inipath is not None else early_config.rootpath
+    for current_path in [start_path, *start_path.parents]:
+        for toml_name in ("pytest.toml", ".pytest.toml", "pyproject.toml"):
+            toml_file = current_path / toml_name
+            if toml_file.exists():
+                return toml_file
+    return None
+
+
 @pytest.hookimpl(tryfirst=True)
 def pytest_load_initial_conftests(
     args: list[str],  # noqa: ARG001
@@ -46,7 +63,11 @@ def pytest_load_initial_conftests(
     parser: pytest.Parser,  # noqa: ARG001
 ) -> None:
     """Load environment variables from configuration files."""
-    for env_file in _load_env_files(early_config):
+    env_files_list: list[str] = []
+    if toml_config := _find_toml_config(early_config):
+        env_files_list, _ = _load_toml_config(toml_config)
+
+    for env_file in _load_env_files(early_config, env_files_list):
         for key, value in dotenv_values(env_file).items():
             if value is not None:
                 os.environ[key] = value
@@ -56,35 +77,31 @@ def pytest_load_initial_conftests(
         elif entry.skip_if_set and entry.key in os.environ:
             continue
         else:
-            # transformation -> replace environment variables, e.g. TEST_DIR={USER}/repo_test_dir.
             os.environ[entry.key] = entry.value.format(**os.environ) if entry.transform else entry.value
 
 
-def _env_files_from_toml(early_config: pytest.Config) -> list[str]:
-    for path in chain.from_iterable([[early_config.rootpath], early_config.rootpath.parents]):
-        for pytest_toml_name in ("pytest.toml", ".pytest.toml", "pyproject.toml"):
-            pytest_toml_file = path / pytest_toml_name
-            if not pytest_toml_file.exists():
-                continue
-            with pytest_toml_file.open("rb") as file_handler:
-                try:
-                    config = tomllib.load(file_handler)
-                except tomllib.TOMLDecodeError:
-                    return []
-                if pytest_toml_name == "pyproject.toml":
-                    config = config.get("tool", {})
-                if (
-                    (pytest_env := config.get("pytest_env"))
-                    and isinstance(pytest_env, dict)
-                    and (raw := pytest_env.get("env_files"))
-                ):
-                    return [str(f) for f in (raw if isinstance(raw, list) else [raw])]
-                return []
-    return []
+def _load_toml_config(config_path: Path) -> tuple[list[str], list[Entry]]:
+    """Load env_files and entries from TOML config file."""  # noqa: DOC201
+    with config_path.open("rb") as file_handler:
+        config = tomllib.load(file_handler)
+
+    if config_path.name == "pyproject.toml":
+        config = config.get("tool", {})
+
+    pytest_env_config = config.get("pytest_env", {})
+    if not pytest_env_config:
+        return [], []
+
+    raw_env_files = pytest_env_config.get("env_files")
+    env_files = [str(f) for f in raw_env_files] if isinstance(raw_env_files, list) else []
+
+    entries = list(_parse_toml_config(pytest_env_config))
+    return env_files, entries
 
 
-def _load_env_files(early_config: pytest.Config) -> Generator[Path, None, None]:
-    if not (env_files := _env_files_from_toml(early_config)):
+def _load_env_files(early_config: pytest.Config, env_files: list[str]) -> Generator[Path, None, None]:
+    """Resolve and yield existing env files."""  # noqa: DOC402
+    if not env_files:
         env_files = list(early_config.getini("env_files"))
     for env_file_str in env_files:
         if (resolved := early_config.rootpath / env_file_str).is_file():
@@ -105,39 +122,19 @@ def _parse_toml_config(config: dict[str, Any]) -> Generator[Entry, None, None]:
 
 
 def _load_values(early_config: pytest.Config) -> Iterator[Entry]:
-    has_toml = False
-    start_path = early_config.inipath.parent if early_config.inipath is not None else early_config.rootpath
-    for path in chain.from_iterable([[start_path], start_path.parents]):
-        for pytest_toml_name in ("pytest.toml", ".pytest.toml", "pyproject.toml"):
-            pytest_toml_file = path / pytest_toml_name
-            if pytest_toml_file.exists():
-                with pytest_toml_file.open("rb") as file_handler:
-                    config = tomllib.load(file_handler)
-
-                    if pytest_toml_name == "pyproject.toml":  # in pyproject.toml the path is tool.pytest_env
-                        config = config.get("tool", {})
-
-                    if "pytest_env" in config:
-                        has_toml = True
-                        yield from _parse_toml_config(config["pytest_env"])
-
-                break  # breaks the pytest_toml_name forloop
-        if has_toml:  # breaks the path forloop
-            break
-
-    if has_toml:
-        return
+    """Load env entries from config, preferring TOML over INI."""  # noqa: DOC402
+    if toml_config := _find_toml_config(early_config):
+        _, entries = _load_toml_config(toml_config)
+        if entries:
+            yield from entries
+            return
 
     for line in early_config.getini("env"):
-        # INI lines e.g. D:R:NAME=VAL has two flags (R and D), NAME key, and VAL value
         parts = line.partition("=")
         ini_key_parts = parts[0].split(":")
         flags = {k.strip().upper() for k in ini_key_parts[:-1]}
-        # R: is a way to designate whether to use raw value -> perform no transformation of the value
         transform = "R" not in flags
-        # D: is a way to mark the value to be set only if it does not exist yet
         skip_if_set = "D" in flags
-        # U: is a way to unset (remove) an environment variable
         unset = "U" in flags
         key = ini_key_parts[-1].strip()
         value = parts[2].strip()
