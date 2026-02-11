@@ -93,7 +93,7 @@ write-changes = true
 count = true
 
 [tool.pyproject-fmt]
-max_supported_python = "3.13"
+max_supported_python = "3.14"
 
 [tool.coverage]
 run.branch = true
