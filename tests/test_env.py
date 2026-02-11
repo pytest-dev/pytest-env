@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
+from textwrap import dedent
 from unittest import mock
 
 import pytest
@@ -472,6 +473,57 @@ def test_env_via_env_file(  # noqa: PLR0913, PLR0917
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
 
+    with mock.patch.dict(os.environ, new_env, clear=True):
+        result = pytester.runpytest()
+
+    result.assert_outcomes(passed=1)
+
+
+@pytest.mark.parametrize(
+    ("config_content", "config_file"),
+    [
+        pytest.param(
+            "[pytest]\nenv = MAGIC=alpha",
+            "pytest.ini",
+            id="ini",
+        ),
+        pytest.param(
+            '[tool.pytest_env]\nMAGIC = "alpha"',
+            "pyproject.toml",
+            id="pyproject toml",
+        ),
+        pytest.param(
+            '[pytest_env]\nMAGIC = "alpha"',
+            "pytest.toml",
+            id="pytest toml",
+        ),
+    ],
+)
+def test_conftest_import_uses_env(
+    pytester: pytest.Pytester,
+    config_content: str,
+    config_file: str,
+) -> None:
+    (pytester.path / config_file).write_text(config_content, encoding="utf-8")
+    (pytester.path / "app_config.py").write_text(
+        dedent("""\
+            import os
+
+            VALUE = os.environ['MAGIC']
+        """),
+        encoding="utf-8",
+    )
+    pytester.makeconftest("from app_config import VALUE")
+    pytester.makepyfile(
+        test_it=dedent("""\
+            from conftest import VALUE
+
+            def test_it() -> None:
+                assert VALUE == 'alpha'
+        """),
+    )
+
+    new_env = {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"}
     with mock.patch.dict(os.environ, new_env, clear=True):
         result = pytester.runpytest()
 
