@@ -31,6 +31,7 @@ HOME = "~/tmp"
 RUN_ENV = 1
 TRANSFORMED = { value = "{USER}/alpha", transform = true }
 SKIP_IF_SET = { value = "on", skip_if_set = true }
+DATABASE_URL = { unset = true }
 ```
 
 In `pytest.toml` (or `.pytest.toml`):
@@ -41,13 +42,14 @@ HOME = "~/tmp"
 RUN_ENV = 1
 TRANSFORMED = { value = "{USER}/alpha", transform = true }
 SKIP_IF_SET = { value = "on", skip_if_set = true }
+DATABASE_URL = { unset = true }
 ```
 
 The `tool.pytest_env` (`pytest_env` in `pytest.toml` and `.pytest.toml`) tables keys are the environment variables keys
 to set. The right hand side of the assignment:
 
-- if an inline table you can set options via the `transform` or `skip_if_set` keys, while the `value` key holds the
-  value to set (or transform before setting). For transformation the variables you can use is other environment
+- if an inline table you can set options via the `transform`, `skip_if_set` or `unset` keys, while the `value` key holds
+  the value to set (or transform before setting). For transformation the variables you can use is other environment
   variable,
 - otherwise the value to set for the environment variable to set (casted to a string).
 
@@ -121,4 +123,15 @@ RUN_PATH_IF_NOT_SET = { value = "/run/path/{USER}", skip_if_set = true }
 env =
     R:RUN_PATH=/run/path/{USER}
     R:D:RUN_PATH_IF_NOT_SET=/run/path/{USER}
+```
+
+### Unsetting variables
+
+You can use `U:` (unset) as prefix to remove an environment variable. This differs from setting a variable to an empty
+string — the variable will be completely removed from `os.environ`:
+
+```ini
+[pytest]
+env =
+    U:DATABASE_URL
 ```
