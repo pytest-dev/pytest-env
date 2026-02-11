@@ -90,6 +90,24 @@ import pytest
             {"MAGIC": "zero"},
             id="empty ini works",
         ),
+        pytest.param(
+            {"MAGIC": "alpha"},
+            "[pytest]\nenv = U:MAGIC",
+            {"MAGIC": None},
+            id="U flag - unset existing var",
+        ),
+        pytest.param(
+            {},
+            "[pytest]\nenv = U:MAGIC",
+            {"MAGIC": None},
+            id="U flag - unset non-existing var",
+        ),
+        pytest.param(
+            {"MAGIC": "alpha"},
+            "[pytest]\nenv = U:MAGIC\n MAGIC=beta",
+            {"MAGIC": "beta"},
+            id="U flag then set - var is set",
+        ),
     ],
 )
 def test_env_via_pytest(
@@ -228,6 +246,24 @@ def test_env_via_pytest(
             {"MAGIC": "1", "MAGIC_2": "pytest"},
             "pytest.toml",
             id="pytest toml over pyproject toml",
+        ),
+        pytest.param(
+            {"MAGIC": "alpha"},
+            "[tool.pytest_env]\nMAGIC = {unset = true}",
+            "",
+            "",
+            {"MAGIC": None},
+            None,
+            id="pyproject toml unset",
+        ),
+        pytest.param(
+            {},
+            "[tool.pytest_env]\nMAGIC = {unset = true}",
+            "",
+            "",
+            {"MAGIC": None},
+            None,
+            id="pyproject toml unset non-existing",
         ),
     ],
 )
