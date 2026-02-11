@@ -33,6 +33,7 @@ class Entry:
     value: str
     transform: bool
     skip_if_set: bool
+    unset: bool = False
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -43,20 +44,24 @@ def pytest_load_initial_conftests(
 ) -> None:
     """Load environment variables from configuration files."""
     for entry in _load_values(early_config):
-        if entry.skip_if_set and entry.key in os.environ:
+        if entry.unset:
+            os.environ.pop(entry.key, None)
+        elif entry.skip_if_set and entry.key in os.environ:
             continue
-        # transformation -> replace environment variables, e.g. TEST_DIR={USER}/repo_test_dir.
-        os.environ[entry.key] = entry.value.format(**os.environ) if entry.transform else entry.value
+        else:
+            # transformation -> replace environment variables, e.g. TEST_DIR={USER}/repo_test_dir.
+            os.environ[entry.key] = entry.value.format(**os.environ) if entry.transform else entry.value
 
 
 def _parse_toml_config(config: dict[str, Any]) -> Generator[Entry, None, None]:
     for key, entry in config.items():
         if isinstance(entry, dict):
-            value = str(entry["value"])
+            unset = bool(entry.get("unset"))
+            value = str(entry.get("value", "")) if not unset else ""
             transform, skip_if_set = bool(entry.get("transform")), bool(entry.get("skip_if_set"))
         else:
-            value, transform, skip_if_set = str(entry), False, False
-        yield Entry(key, value, transform, skip_if_set)
+            value, transform, skip_if_set, unset = str(entry), False, False, False
+        yield Entry(key, value, transform, skip_if_set, unset=unset)
 
 
 def _load_values(early_config: pytest.Config) -> Iterator[Entry]:
@@ -91,6 +96,8 @@ def _load_values(early_config: pytest.Config) -> Iterator[Entry]:
         transform = "R" not in flags
         # D: is a way to mark the value to be set only if it does not exist yet
         skip_if_set = "D" in flags
+        # U: is a way to unset (remove) an environment variable
+        unset = "U" in flags
         key = ini_key_parts[-1].strip()
         value = parts[2].strip()
-        yield Entry(key, value, transform, skip_if_set)
+        yield Entry(key, value, transform, skip_if_set, unset=unset)
