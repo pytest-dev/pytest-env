@@ -265,6 +265,15 @@ def test_env_via_pytest(
             None,
             id="pyproject toml unset non-existing",
         ),
+        pytest.param(
+            {},
+            '[tool.pytest_env]\nMAGIC = "parent"',
+            '[pytest_env]\nMAGIC = "child"',
+            "",
+            {"MAGIC": "child"},
+            "sub/pytest.toml",
+            id="subdir pytest toml over parent pyproject toml",
+        ),
     ],
 )
 def test_env_via_toml(  # noqa: PLR0913, PLR0917
@@ -279,13 +288,21 @@ def test_env_via_toml(  # noqa: PLR0913, PLR0917
 ) -> None:
     tmp_dir = Path(str(testdir.tmpdir))
     test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
-    Path(str(tmp_dir / f"test_{test_name}.py")).symlink_to(Path(__file__).parent / "template.py")
-    if ini:
-        (tmp_dir / "pytest.ini").write_text(ini, encoding="utf-8")
     if pyproject_toml:
         (tmp_dir / "pyproject.toml").write_text(pyproject_toml, encoding="utf-8")
     if pytest_toml and pytest_toml_name:
-        (tmp_dir / pytest_toml_name).write_text(pytest_toml, encoding="utf-8")
+        toml_path = tmp_dir / pytest_toml_name
+        toml_path.parent.mkdir(parents=True, exist_ok=True)
+        toml_path.write_text(pytest_toml, encoding="utf-8")
+
+    if pytest_toml_name and "/" in pytest_toml_name:
+        test_dir = tmp_dir / Path(pytest_toml_name).parent
+    else:
+        test_dir = tmp_dir
+        if ini:
+            (tmp_dir / "pytest.ini").write_text(ini, encoding="utf-8")
+
+    Path(str(test_dir / f"test_{test_name}.py")).symlink_to(Path(__file__).parent / "template.py")
 
     new_env = {
         **env,
@@ -296,7 +313,7 @@ def test_env_via_toml(  # noqa: PLR0913, PLR0917
 
     # monkeypatch persists env variables across parametrized tests, therefore using mock.patch.dict
     with mock.patch.dict(os.environ, new_env, clear=True):
-        result = testdir.runpytest()
+        result = testdir.runpytest(str(test_dir))
 
     result.assert_outcomes(passed=1)
 
