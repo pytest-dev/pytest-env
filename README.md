@@ -5,12 +5,10 @@
 [![check](https://github.com/pytest-dev/pytest-env/actions/workflows/check.yaml/badge.svg)](https://github.com/pytest-dev/pytest-env/actions/workflows/check.yaml)
 [![Downloads](https://static.pepy.tech/badge/pytest-env/month)](https://pepy.tech/project/pytest-env)
 
-This is a `pytest` plugin that enables you to set environment variables in `pytest.ini`, `pyproject.toml`, `pytest.toml`
-or `.pytest.toml` files.
+A `pytest` plugin that sets environment variables from `pyproject.toml`, `pytest.toml`, `.pytest.toml`, or `pytest.ini`
+configuration files.
 
 ## Installation
-
-Install with pip:
 
 ```shell
 pip install pytest-env
@@ -18,14 +16,13 @@ pip install pytest-env
 
 ## Usage
 
-### Native form in `pyproject.toml`, `pytest.toml` and `.pytest.toml`
+### TOML configuration (native form)
 
-Native form takes precedence over the `pytest.ini` form. `pytest.toml` takes precedence over `.pytest.toml`, and that
-takes precedence over `pyproject.toml`.
-
-In `pyproject.toml`:
+Define environment variables under `[tool.pytest_env]` in `pyproject.toml`, or `[pytest_env]` in `pytest.toml` /
+`.pytest.toml`:
 
 ```toml
+# pyproject.toml
 [tool.pytest_env]
 HOME = "~/tmp"
 RUN_ENV = 1
@@ -34,9 +31,8 @@ SKIP_IF_SET = { value = "on", skip_if_set = true }
 DATABASE_URL = { unset = true }
 ```
 
-In `pytest.toml` (or `.pytest.toml`):
-
 ```toml
+# pytest.toml or .pytest.toml
 [pytest_env]
 HOME = "~/tmp"
 RUN_ENV = 1
@@ -45,29 +41,30 @@ SKIP_IF_SET = { value = "on", skip_if_set = true }
 DATABASE_URL = { unset = true }
 ```
 
-The `tool.pytest_env` (`pytest_env` in `pytest.toml` and `.pytest.toml`) tables keys are the environment variables keys
-to set. The right hand side of the assignment:
+Each key is the environment variable name. The value is either a plain value (cast to string) or an inline table with
+the following keys:
 
-- if an inline table you can set options via the `transform`, `skip_if_set` or `unset` keys, while the `value` key holds
-  the value to set (or transform before setting). For transformation the variables you can use is other environment
-  variable,
-- otherwise the value to set for the environment variable to set (casted to a string).
+| Key           | Type   | Description                                                                 |
+| ------------- | ------ | --------------------------------------------------------------------------- |
+| `value`       | string | The value to set                                                            |
+| `transform`   | bool   | Expand `{VAR}` references in the value using existing environment variables |
+| `skip_if_set` | bool   | Only set the variable if it is not already defined                          |
+| `unset`       | bool   | Remove the variable from the environment (ignores `value`)                  |
 
-### Via pytest configurations
+### INI configuration
 
-In your pytest.ini file add a key value pair with `env` as the key and the environment variables as a line separated
-list of `KEY=VALUE` entries. The defined variables will be added to the environment before any tests are run:
+Define environment variables as a line-separated list of `KEY=VALUE` entries under the `env` key:
 
 ```ini
+# pytest.ini
 [pytest]
 env =
     HOME=~/tmp
     RUN_ENV=test
 ```
 
-Or with `pyproject.toml`:
-
 ```toml
+# pyproject.toml
 [tool.pytest]
 env = [
   "HOME=~/tmp",
@@ -75,28 +72,41 @@ env = [
 ]
 ```
 
-### Only set if not already set
+Prefix flags modify behavior. Flags are case-insensitive and can be combined in any order (e.g., `R:D:KEY=VALUE`):
 
-Use `skip_if_set = true` in the native TOML form, or the `D:` (default) prefix in INI form, to only set the variable
-when it is not already defined in the environment:
+| Flag | Description                                                        |
+| ---- | ------------------------------------------------------------------ |
+| `D:` | Default — only set if the variable is not already defined          |
+| `R:` | Raw — skip `{VAR}` expansion (INI expands by default, unlike TOML) |
+| `U:` | Unset — remove the variable from the environment entirely          |
 
-```toml
-[pytest_env]
-HOME = { value = "~/tmp", skip_if_set = true }
-RUN_ENV = { value = "test", skip_if_set = true }
+### Precedence
+
+When multiple configuration sources are present, the native TOML form takes precedence over the INI form. Within the
+TOML form, files are checked in this order: `pytest.toml`, `.pytest.toml`, `pyproject.toml`. The first file containing a
+`pytest_env` section wins.
+
+### Configuration file discovery
+
+The plugin walks the directory tree starting from the directory containing the configuration file pytest resolved
+(`inipath`). For each directory it checks `pytest.toml`, `.pytest.toml`, and `pyproject.toml` in order, stopping at the
+first file with a `pytest_env` section. This means a subdirectory config takes precedence over a parent config:
+
+```
+project/
+├── pyproject.toml          # [tool.pytest_env] DB_HOST = "prod-db"
+└── tests_integration/
+    ├── pytest.toml          # [pytest_env] DB_HOST = "test-db"
+    └── test_api.py
 ```
 
-```ini
-[pytest]
-env =
-    D:HOME=~/tmp
-    D:RUN_ENV=test
-```
+Running `pytest tests_integration/` uses `DB_HOST = "test-db"` from the subdirectory.
 
-### Transformation
+If no TOML file with a `pytest_env` section is found, the plugin falls back to the INI-style `env` key.
 
-You can reference existing environment variables using a python-like format. Use `transform = true` in the native TOML
-form, or omit the `R:` prefix in INI form (transformation is the default in INI):
+### Examples
+
+**Expanding environment variables** — reference existing variables using `{VAR}` syntax:
 
 ```toml
 [pytest_env]
@@ -109,29 +119,51 @@ env =
     RUN_PATH=/run/path/{USER}
 ```
 
-To keep the raw value and skip transformation, omit `transform` (or set it to `false`) in TOML, or apply the `R:` prefix
-in INI (can combine with `D:`/`skip_if_set`, order is not important):
+In TOML, expansion requires `transform = true`. In INI, expansion is the default; use the `R:` flag to disable it.
+
+**Keeping raw values** — prevent `{VAR}` expansion:
 
 ```toml
 [pytest_env]
-RUN_PATH = { value = "/run/path/{USER}" }
-RUN_PATH_IF_NOT_SET = { value = "/run/path/{USER}", skip_if_set = true }
+PATTERN = { value = "/run/path/{USER}" }
 ```
 
 ```ini
 [pytest]
 env =
-    R:RUN_PATH=/run/path/{USER}
-    R:D:RUN_PATH_IF_NOT_SET=/run/path/{USER}
+    R:PATTERN=/run/path/{USER}
 ```
 
-### Unsetting variables
+**Conditional defaults** — only set when not already defined:
 
-You can use `U:` (unset) as prefix to remove an environment variable. This differs from setting a variable to an empty
-string — the variable will be completely removed from `os.environ`:
+```toml
+[pytest_env]
+HOME = { value = "~/tmp", skip_if_set = true }
+```
+
+```ini
+[pytest]
+env =
+    D:HOME=~/tmp
+```
+
+**Unsetting variables** — completely remove a variable from `os.environ` (not the same as setting to empty string):
+
+```toml
+[pytest_env]
+DATABASE_URL = { unset = true }
+```
 
 ```ini
 [pytest]
 env =
     U:DATABASE_URL
+```
+
+**Combining flags** — flags can be combined in any order:
+
+```ini
+[pytest]
+env =
+    R:D:TEMPLATE=/path/{placeholder}
 ```
