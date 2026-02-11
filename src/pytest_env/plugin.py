@@ -66,7 +66,8 @@ def _parse_toml_config(config: dict[str, Any]) -> Generator[Entry, None, None]:
 
 def _load_values(early_config: pytest.Config) -> Iterator[Entry]:
     has_toml = False
-    for path in chain.from_iterable([[early_config.rootpath], early_config.rootpath.parents]):
+    start_path = early_config.inipath.parent if early_config.inipath is not None else early_config.rootpath
+    for path in chain.from_iterable([[start_path], start_path.parents]):
         for pytest_toml_name in ("pytest.toml", ".pytest.toml", "pyproject.toml"):
             pytest_toml_file = path / pytest_toml_name
             if pytest_toml_file.exists():
