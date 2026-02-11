@@ -6,7 +6,7 @@
 [![Downloads](https://static.pepy.tech/badge/pytest-env/month)](https://pepy.tech/project/pytest-env)
 
 A `pytest` plugin that sets environment variables from `pyproject.toml`, `pytest.toml`, `.pytest.toml`, or `pytest.ini`
-configuration files.
+configuration files. It can also load variables from `.env` files.
 
 ## Installation
 
@@ -103,6 +103,43 @@ project/
 Running `pytest tests_integration/` uses `DB_HOST = "test-db"` from the subdirectory.
 
 If no TOML file with a `pytest_env` section is found, the plugin falls back to the INI-style `env` key.
+
+### Loading `.env` files
+
+Use `env_files` to load variables from `.env` files. Files are loaded before inline `env` entries, so inline config
+takes precedence. Missing files are silently skipped. Paths are relative to the project root.
+
+```toml
+# pyproject.toml
+[tool.pytest_env]
+env_files = [".env", ".env.test"]
+API_KEY = "override_value"
+```
+
+```toml
+# pytest.toml or .pytest.toml
+[pytest_env]
+env_files = [".env"]
+```
+
+```ini
+# pytest.ini
+[pytest]
+env_files =
+    .env
+    .env.test
+```
+
+Files are parsed by [python-dotenv](https://github.com/theskumar/python-dotenv), supporting `KEY=VALUE` lines, `#`
+comments, `export` prefix, quoted values (with escape sequences in double quotes), and `${VAR:-default}` expansion:
+
+```shell
+# .env
+DATABASE_URL=postgres://localhost/mydb
+export SECRET_KEY='my-secret-key'
+DEBUG="true"
+MESSAGE="hello\nworld"
+```
 
 ### Examples
 

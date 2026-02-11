@@ -3,9 +3,15 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest import mock
 
 import pytest
+
+from pytest_env.plugin import _env_files_from_toml  # noqa: PLC2701
+
+if TYPE_CHECKING:
+    import pytest_mock
 
 
 @pytest.mark.parametrize(
@@ -316,6 +322,176 @@ def test_env_via_toml(  # noqa: PLR0913, PLR0917
         result = testdir.runpytest(str(test_dir))
 
     result.assert_outcomes(passed=1)
+
+
+@pytest.mark.parametrize(
+    ("env", "env_file_content", "config", "expected_env", "config_type"),
+    [
+        pytest.param(
+            {},
+            "MAGIC=alpha\nSORCERY=beta",
+            '[tool.pytest_env]\nenv_files = [".env"]',
+            {"MAGIC": "alpha", "SORCERY": "beta"},
+            "pyproject",
+            id="basic env file via pyproject toml",
+        ),
+        pytest.param(
+            {},
+            "MAGIC=alpha\nSORCERY=beta",
+            '[pytest_env]\nenv_files = [".env"]',
+            {"MAGIC": "alpha", "SORCERY": "beta"},
+            "pytest.toml",
+            id="basic env file via pytest toml",
+        ),
+        pytest.param(
+            {},
+            "MAGIC=alpha\nSORCERY=beta",
+            "[pytest]\nenv_files = .env",
+            {"MAGIC": "alpha", "SORCERY": "beta"},
+            "ini",
+            id="basic env file via ini",
+        ),
+        pytest.param(
+            {},
+            "# comment line\n\nMAGIC=alpha\n  # indented comment\n",
+            '[tool.pytest_env]\nenv_files = [".env"]',
+            {"MAGIC": "alpha"},
+            "pyproject",
+            id="comments and blank lines",
+        ),
+        pytest.param(
+            {},
+            "SINGLE='hello world'\nDOUBLE=\"hello world\"",
+            '[tool.pytest_env]\nenv_files = [".env"]',
+            {"SINGLE": "hello world", "DOUBLE": "hello world"},
+            "pyproject",
+            id="quoted values",
+        ),
+        pytest.param(
+            {},
+            "MAGIC=alpha",
+            '[tool.pytest_env]\nenv_files = [".env"]\nMAGIC = "beta"',
+            {"MAGIC": "beta"},
+            "pyproject",
+            id="inline overrides env file",
+        ),
+        pytest.param(
+            {},
+            "",
+            '[tool.pytest_env]\nenv_files = ["missing.env"]',
+            {},
+            "pyproject",
+            id="missing env file is skipped",
+        ),
+        pytest.param(
+            {},
+            "KEY_ONLY\nVALID=yes",
+            '[tool.pytest_env]\nenv_files = [".env"]',
+            {"VALID": "yes"},
+            "pyproject",
+            id="line without equals is skipped",
+        ),
+        pytest.param(
+            {},
+            "MAGIC=has=equals",
+            '[tool.pytest_env]\nenv_files = [".env"]',
+            {"MAGIC": "has=equals"},
+            "pyproject",
+            id="value with equals sign",
+        ),
+        pytest.param(
+            {},
+            "  MAGIC  =  alpha  ",
+            '[tool.pytest_env]\nenv_files = [".env"]',
+            {"MAGIC": "alpha"},
+            "pyproject",
+            id="whitespace around key and value",
+        ),
+        pytest.param(
+            {"MAGIC": "original"},
+            "MAGIC=from_file",
+            '[tool.pytest_env]\nenv_files = [".env"]\nMAGIC = {value = "from_file", skip_if_set = true}',
+            {"MAGIC": "from_file"},
+            "pyproject",
+            id="skip if set respects env file",
+        ),
+        pytest.param(
+            {},
+            "=no_key\nVALID=yes",
+            '[tool.pytest_env]\nenv_files = [".env"]',
+            {"VALID": "yes"},
+            "pyproject",
+            id="empty key is skipped",
+        ),
+        pytest.param(
+            {},
+            "",
+            '[tool.pytest_env]\nenv_files = "some_value"',
+            {"env_files": "some_value"},
+            "pyproject",
+            id="env_files as env var when string",
+        ),
+        pytest.param(
+            {},
+            "export MAGIC=alpha",
+            '[tool.pytest_env]\nenv_files = [".env"]',
+            {"MAGIC": "alpha"},
+            "pyproject",
+            id="export prefix",
+        ),
+        pytest.param(
+            {},
+            'MAGIC="hello\\nworld"',
+            '[tool.pytest_env]\nenv_files = [".env"]',
+            {"MAGIC": "hello\nworld"},
+            "pyproject",
+            id="escape sequences in double quotes",
+        ),
+        pytest.param(
+            {},
+            "MAGIC=alpha #comment",
+            '[tool.pytest_env]\nenv_files = [".env"]',
+            {"MAGIC": "alpha"},
+            "pyproject",
+            id="inline comment",
+        ),
+    ],
+)
+def test_env_via_env_file(  # noqa: PLR0913, PLR0917
+    testdir: pytest.Testdir,
+    env: dict[str, str],
+    env_file_content: str,
+    config: str,
+    expected_env: dict[str, str | None],
+    config_type: str,
+    request: pytest.FixtureRequest,
+) -> None:
+    tmp_dir = Path(str(testdir.tmpdir))
+    test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
+    Path(str(tmp_dir / f"test_{test_name}.py")).symlink_to(Path(__file__).parent / "template.py")
+    if env_file_content:
+        (tmp_dir / ".env").write_text(env_file_content, encoding="utf-8")
+    config_file_names = {"pyproject": "pyproject.toml", "pytest.toml": "pytest.toml", "ini": "pytest.ini"}
+    (tmp_dir / config_file_names[config_type]).write_text(config, encoding="utf-8")
+
+    new_env = {
+        **env,
+        "_TEST_ENV": repr(expected_env),
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_PLUGINS": "pytest_env.plugin",
+    }
+
+    with mock.patch.dict(os.environ, new_env, clear=True):
+        result = testdir.runpytest()
+
+    result.assert_outcomes(passed=1)
+
+
+def test_env_files_from_toml_bad_toml(tmp_path: Path, mocker: pytest_mock.MockerFixture) -> None:
+    (tmp_path / "pyproject.toml").write_text("bad toml", encoding="utf-8")
+    config = mocker.MagicMock()
+    config.rootpath = tmp_path
+    assert _env_files_from_toml(config) == []
 
 
 @pytest.mark.parametrize("toml_name", ["pytest.toml", ".pytest.toml", "pyproject.toml"])
