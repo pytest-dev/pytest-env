@@ -14,6 +14,8 @@ if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
     from pathlib import Path
 
+_env_actions_key = pytest.StashKey[list[str]]()
+
 if sys.version_info >= (3, 11):  # pragma: >=3.11 cover
     import tomllib
 else:  # pragma: <3.11 cover
@@ -31,6 +33,13 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="envfile",
         default=None,
         help="path to .env file to load (prefix with + to extend config files, otherwise replaces them)",
+    )
+    parser.addoption(
+        "--pytest-env-verbose",
+        action="store_true",
+        dest="pytest_env_verbose",
+        default=False,
+        help="print environment variable assignments made by pytest-env",
     )
 
 
@@ -52,21 +61,68 @@ def pytest_load_initial_conftests(
     parser: pytest.Parser,  # noqa: ARG001
 ) -> None:
     """Load environment variables from configuration files."""
+    verbose = getattr(early_config.known_args_namespace, "pytest_env_verbose", False)
+    actions: list[tuple[str, str, str, str]] = []
+
     env_files_list: list[str] = []
     if toml_config := _find_toml_config(early_config):
         env_files_list, _ = _load_toml_config(toml_config)
 
+    _apply_env_files(early_config, env_files_list, actions if verbose else None)
+    _apply_entries(early_config, actions if verbose else None)
+
+    if verbose and actions:
+        early_config.stash[_env_actions_key] = _format_actions(actions)
+
+
+def _apply_env_files(
+    early_config: pytest.Config,
+    env_files_list: list[str],
+    actions: list[tuple[str, str, str, str]] | None,
+) -> None:
     for env_file in _load_env_files(early_config, env_files_list):
         for key, value in dotenv_values(env_file).items():
             if value is not None:
                 os.environ[key] = value
+                if actions is not None:
+                    actions.append(("SET", key, value, str(env_file)))
+
+
+def _apply_entries(
+    early_config: pytest.Config,
+    actions: list[tuple[str, str, str, str]] | None,
+) -> None:
+    source = _config_source(early_config) if actions is not None else ""
     for entry in _load_values(early_config):
         if entry.unset:
             os.environ.pop(entry.key, None)
+            if actions is not None:
+                actions.append(("UNSET", entry.key, "", source))
         elif entry.skip_if_set and entry.key in os.environ:
-            continue
+            if actions is not None:
+                actions.append(("SKIP", entry.key, os.environ[entry.key], source))
         else:
-            os.environ[entry.key] = entry.value.format(**os.environ) if entry.transform else entry.value
+            final = entry.value.format(**os.environ) if entry.transform else entry.value
+            os.environ[entry.key] = final
+            if actions is not None:
+                actions.append(("SET", entry.key, final, source))
+
+
+def pytest_report_header(config: pytest.Config) -> list[str] | None:
+    """Display environment variable assignments in test session header."""
+    if _env_actions_key in config.stash:
+        return config.stash[_env_actions_key]
+    return None
+
+
+def _format_actions(actions: list[tuple[str, str, str, str]]) -> list[str]:
+    lines = ["pytest-env:"]
+    for action, key, value, source in actions:
+        if action == "UNSET":
+            lines.append(f"  {action:<5} {key}  (from {source})")
+        else:
+            lines.append(f"  {action:<5} {key}={value}  (from {source})")
+    return lines
 
 
 def _find_toml_config(early_config: pytest.Config) -> Path | None:
@@ -85,6 +141,15 @@ def _find_toml_config(early_config: pytest.Config) -> Path | None:
             if toml_file.exists():
                 return toml_file
     return None
+
+
+def _config_source(early_config: pytest.Config) -> str:
+    """Describe the configuration source for verbose output."""
+    if toml_path := _find_toml_config(early_config):
+        return str(toml_path)
+    if early_config.inipath:
+        return str(early_config.inipath)
+    return "config"  # pragma: no cover
 
 
 def _load_toml_config(config_path: Path) -> tuple[list[str], list[Entry]]:

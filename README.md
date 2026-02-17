@@ -8,6 +8,28 @@
 A `pytest` plugin that sets environment variables from `pyproject.toml`, `pytest.toml`, `.pytest.toml`, or `pytest.ini`
 configuration files. It can also load variables from `.env` files.
 
+<!-- mdformat-toc start --slug=github --no-anchors --maxlevel=6 --minlevel=2 -->
+
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [How-to guides](#how-to-guides)
+  - [Load variables from `.env` files](#load-variables-from-env-files)
+  - [Control variable behavior](#control-variable-behavior)
+  - [Set different environments for test suites](#set-different-environments-for-test-suites)
+- [Reference](#reference)
+  - [TOML configuration format](#toml-configuration-format)
+  - [INI configuration format](#ini-configuration-format)
+  - [`.env` file format](#env-file-format)
+  - [CLI options](#cli-options)
+    - [`--envfile PATH`](#--envfile-path)
+    - [`--pytest-env-verbose`](#--pytest-env-verbose)
+- [Explanation](#explanation)
+  - [Precedence](#precedence)
+  - [File discovery](#file-discovery)
+  - [Choosing a configuration format](#choosing-a-configuration-format)
+
+<!-- mdformat-toc end -->
+
 ## Installation
 
 ```shell
@@ -35,36 +57,16 @@ def test_database_connection():
     assert os.environ["DEBUG"] == "true"
 ```
 
+To see exactly what pytest-env sets, pass `--pytest-env-verbose`:
+
+```
+$ pytest --pytest-env-verbose
+pytest-env:
+  SET   DATABASE_URL=postgresql://localhost/test_db  (from /project/pyproject.toml)
+  SET   DEBUG=true                                   (from /project/pyproject.toml)
+```
+
 ## How-to guides
-
-### Set different environments for test suites
-
-Create a subdirectory config to override parent settings:
-
-```
-project/
-├── pyproject.toml          # [tool.pytest_env] DB_HOST = "prod-db"
-└── tests_integration/
-    ├── pytest.toml          # [pytest_env] DB_HOST = "test-db"
-    └── test_api.py
-```
-
-Running `pytest tests_integration/` uses the subdirectory configuration.
-
-### Switch environments at runtime
-
-Use the `--envfile` CLI option to override or extend your configuration:
-
-```shell
-# Override all configured env files with a different one.
-pytest --envfile .env.local
-
-# Add an additional env file to those already configured.
-pytest --envfile +.env.override
-```
-
-Override mode loads only the specified file. Extend mode (prefix with `+`) loads configuration files first, then the CLI
-file. Variables in the CLI file take precedence.
 
 ### Load variables from `.env` files
 
@@ -83,48 +85,53 @@ SECRET_KEY='my-secret-key'
 DEBUG="true"
 ```
 
-Files are loaded before inline variables, so inline configuration takes precedence.
+Files are loaded before inline variables, so inline configuration takes precedence. To switch `.env` files at runtime
+without changing configuration, use the `--envfile` CLI option:
 
-### Expand variables using other environment variables
+```shell
+pytest --envfile .env.local           # ignore configured env_files, load only this file
+pytest --envfile +.env.override       # load configured env_files first, then this file on top
+```
 
-Reference existing environment variables in values:
+### Control variable behavior
+
+Variables set as plain values are assigned directly. For more control, use inline tables with the `transform`,
+`skip_if_set`, and `unset` keys:
 
 ```toml
 [tool.pytest_env]
+SIMPLE = "value"
 RUN_PATH = { value = "/run/path/{USER}", transform = true }
-```
-
-The `{USER}` placeholder expands to the current user's name.
-
-### Set conditional defaults
-
-Only set a variable if it does not already exist:
-
-```toml
-[tool.pytest_env]
 HOME = { value = "~/tmp", skip_if_set = true }
+TEMP_VAR = { unset = true }
 ```
 
-This leaves `HOME` unchanged if already set, otherwise sets it to `~/tmp`.
+`transform` expands `{VAR}` placeholders using existing environment variables. `skip_if_set` leaves the variable
+unchanged when it already exists. `unset` removes it entirely (different from setting to empty string).
 
-### Remove variables from the environment
+### Set different environments for test suites
 
-Unset a variable completely (different from setting to empty string):
+Create a subdirectory config to override parent settings:
 
-```toml
-[tool.pytest_env]
-DATABASE_URL = { unset = true }
 ```
+project/
+├── pyproject.toml          # [tool.pytest_env] DB_HOST = "prod-db"
+└── tests_integration/
+    ├── pytest.toml          # [pytest_env] DB_HOST = "test-db"
+    └── test_api.py
+```
+
+Running `pytest tests_integration/` uses the subdirectory configuration. The plugin walks up the directory tree and
+stops at the first file containing a `pytest_env` section, so subdirectory configs naturally override parent configs.
 
 ## Reference
 
 ### TOML configuration format
 
-Define environment variables under `[tool.pytest_env]` in `pyproject.toml`, or `[pytest_env]` in `pytest.toml` or
+Define environment variables under `[tool.pytest_env]` in `pyproject.toml`, or `[pytest_env]` in `pytest.toml` /
 `.pytest.toml`:
 
 ```toml
-# pyproject.toml
 [tool.pytest_env]
 SIMPLE_VAR = "value"
 NUMBER_VAR = 42
@@ -133,10 +140,8 @@ CONDITIONAL = { value = "default", skip_if_set = true }
 REMOVED = { unset = true }
 ```
 
-Each key is the environment variable name. Values can be:
-
-- **Plain values**: Cast to string and set directly.
-- **Inline tables**: Objects with the following keys:
+Each key is the environment variable name. Values can be plain values (cast to string) or inline tables with the
+following keys:
 
 | Key           | Type   | Description                                                                  |
 | ------------- | ------ | ---------------------------------------------------------------------------- |
@@ -171,13 +176,13 @@ env = [
 
 Prefix flags modify behavior. Flags are case-insensitive and can be combined in any order (e.g., `R:D:KEY=VALUE`):
 
-| Flag | Description                                                         |
-| ---- | ------------------------------------------------------------------- |
-| `D:` | Default — only set if the variable is not already defined.          |
-| `R:` | Raw — skip `{VAR}` expansion (INI expands by default, unlike TOML). |
-| `U:` | Unset — remove the variable from the environment entirely.          |
+| Flag | Description                                                          |
+| ---- | -------------------------------------------------------------------- |
+| `D:` | Default -- only set if the variable is not already defined.          |
+| `R:` | Raw -- skip `{VAR}` expansion (INI expands by default, unlike TOML). |
+| `U:` | Unset -- remove the variable from the environment entirely.          |
 
-**Note**: In INI format, variable expansion is enabled by default. In TOML format, it requires `transform = true`.
+In INI format variable expansion is enabled by default. In TOML format it requires `transform = true`.
 
 ### `.env` file format
 
@@ -195,13 +200,8 @@ env_files =
     .env.test
 ```
 
-Files are parsed by [python-dotenv](https://github.com/theskumar/python-dotenv) and support:
-
-- `KEY=VALUE` lines
-- `#` comments
-- `export` prefix
-- Quoted values with escape sequences in double quotes
-- `${VAR:-default}` expansion
+Files are parsed by [python-dotenv](https://github.com/theskumar/python-dotenv) and support `KEY=VALUE` lines, `#`
+comments, `export` prefix, quoted values with escape sequences in double quotes, and `${VAR:-default}` expansion.
 
 Example `.env` file:
 
@@ -213,83 +213,71 @@ MESSAGE="hello\nworld"
 API_KEY=${FALLBACK_KEY:-default_key}
 ```
 
-Missing `.env` files are silently skipped. Paths are resolved relative to the project root.
+Missing `.env` files from configuration are silently skipped. Paths are resolved relative to the project root.
 
-### CLI option: `--envfile`
+### CLI options
 
-Override or extend configuration-based `env_files` at runtime:
+#### `--envfile PATH`
 
-```shell
-pytest --envfile PATH        # Override mode
-pytest --envfile +PATH       # Extend mode
-```
+Override or extend configuration-based `env_files` at runtime.
 
-**Override mode** (`--envfile PATH`): Loads only the specified file, ignoring all `env_files` from configuration.
+**Override mode** (`--envfile PATH`): loads only the specified file, ignoring all `env_files` from configuration.
 
-**Extend mode** (`--envfile +PATH`): Loads configuration files first in their normal order, then loads the CLI file.
+**Extend mode** (`--envfile +PATH`): loads configuration files first in their normal order, then loads the CLI file.
 Variables from the CLI file override those from configuration files.
 
 Unlike configuration-based `env_files`, CLI-specified files must exist. Missing files raise `FileNotFoundError`. Paths
 are resolved relative to the project root.
 
+#### `--pytest-env-verbose`
+
+Print all environment variable assignments in the test session header. Each line shows the action (`SET`, `SKIP`, or
+`UNSET`), the variable name with its final value, and the source file:
+
+```
+pytest-env:
+  SET   DATABASE_URL=postgres://localhost/test  (from /path/to/.env)
+  SET   DEBUG=true                              (from /path/to/pyproject.toml)
+  SKIP  HOME=/Users/me                         (from /path/to/pyproject.toml)
+  UNSET TEMP_VAR                               (from /path/to/pyproject.toml)
+```
+
+Useful for debugging when multiple env files, inline configuration, and CLI options interact.
+
 ## Explanation
 
-### Configuration precedence
+### Precedence
 
-When multiple configuration sources define the same variable, the following precedence rules apply (highest to lowest):
+When multiple sources define the same variable, precedence applies in this order (highest to lowest):
 
-1. Inline variables in configuration files (TOML or INI format)
-1. Variables from `.env` files loaded via `env_files`
-1. Variables already present in the environment (unless `skip_if_set = false` or no `D:` flag)
+1. Inline variables in configuration files (TOML or INI format).
+1. Variables from `.env` files loaded via `env_files`. When using `--envfile`, CLI files take precedence over
+   configuration-based `env_files`.
+1. Variables already present in the environment (preserved when `skip_if_set = true` or `D:` flag is used).
 
-When using `--envfile`, CLI files take precedence over configuration-based `env_files`, but inline variables still win.
-
-### Configuration format precedence
-
-When multiple configuration formats are present:
-
-1. TOML native format (`[pytest_env]` or `[tool.pytest_env]`) takes precedence over INI format.
-1. Among TOML files, the first file with a `pytest_env` section is used, checked in order: `pytest.toml`,
-   `.pytest.toml`, `pyproject.toml`.
-1. If no TOML file contains `pytest_env`, the plugin falls back to INI-style `env` configuration.
+When multiple configuration formats are present, TOML native format (`[pytest_env]` / `[tool.pytest_env]`) takes
+precedence over INI format. Among TOML files, the first file with a `pytest_env` section wins, checked in order:
+`pytest.toml`, `.pytest.toml`, `pyproject.toml`. If no TOML file contains `pytest_env`, the plugin falls back to
+INI-style `env` configuration.
 
 ### File discovery
 
 The plugin walks up the directory tree starting from pytest's resolved configuration directory. For each directory, it
 checks `pytest.toml`, `.pytest.toml`, and `pyproject.toml` in order, stopping at the first file containing a
-`pytest_env` section.
+`pytest_env` section. This means subdirectory configurations take precedence over parent configurations, allowing
+different settings for integration tests versus unit tests.
 
-This means subdirectory configurations take precedence over parent configurations, allowing you to have different
-settings for integration tests versus unit tests.
+### Choosing a configuration format
 
-### When to use TOML vs INI format
+**TOML native format** (`[pytest_env]`) is best when you need fine-grained control over expansion and conditional
+setting, or when your configuration uses multiple inline tables. Variable expansion requires explicit
+`transform = true`.
 
-Use the **TOML native format** (`[pytest_env]`) when:
+**INI format** (`env` key) is best for simple `KEY=VALUE` pairs with minimal syntax. Variable expansion is on by default
+(use `R:` to disable). Both formats are fully supported and can coexist -- TOML takes precedence if both are present.
 
-- You need fine-grained control over expansion and conditional setting.
-- Your configuration is complex with multiple inline tables.
-- You prefer explicit `transform = true` for variable expansion.
-
-Use the **INI format** (`env` key) when:
-
-- You want simple `KEY=VALUE` pairs with minimal syntax.
-- You prefer expansion by default (add `R:` to disable).
-- You are migrating from an existing INI-based setup.
-
-Both formats are fully supported and can coexist (TOML takes precedence if both are present).
-
-### When to use `.env` files vs inline configuration
-
-Use **`.env` files** when:
-
-- You have many environment variables that would clutter your config file.
-- You want to share environment configuration with other tools (e.g., Docker, shell scripts).
-- You need different `.env` files for different environments (dev, staging, prod).
-
-Use **inline configuration** when:
-
-- You have a small number of test-specific variables.
-- You want variables to be version-controlled alongside test configuration.
-- You need features like `transform`, `skip_if_set`, or `unset` that `.env` files do not support.
-
-You can combine both approaches. Inline variables always take precedence over `.env` files.
+**`.env` files** work well when you have many variables that would clutter your config file, want to share environment
+configuration with other tools (Docker, shell scripts), or need different files for different environments. **Inline
+configuration** is better for a small number of test-specific variables that should be version-controlled, or when you
+need `transform`, `skip_if_set`, or `unset`. You can combine both -- inline variables always take precedence over `.env`
+files.
