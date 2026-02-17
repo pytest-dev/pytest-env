@@ -548,3 +548,99 @@ def test_env_via_pyproject_toml_bad(pytester: pytest.Pytester, toml_name: str) -
         f"ERROR: {toml_file}: Expected '=' after a key in a key/value pair (at line 1, column 5)",
         "",
     ]
+
+
+@pytest.mark.parametrize(
+    ("env_file_content", "cli_file_content", "config", "cli_arg", "expected_env"),
+    [
+        pytest.param(
+            "MAGIC=from_env",
+            "MAGIC=from_cli",
+            '[tool.pytest_env]\nenv_files = [".env"]',
+            "cli.env",
+            {"MAGIC": "from_cli"},
+            id="override mode",
+        ),
+        pytest.param(
+            "MAGIC=from_env\nEXTRA=config",
+            "MAGIC=from_cli",
+            '[tool.pytest_env]\nenv_files = [".env"]',
+            "+cli.env",
+            {"MAGIC": "from_cli", "EXTRA": "config"},
+            id="extend mode",
+        ),
+        pytest.param(
+            None,
+            "MAGIC=from_cli",
+            None,
+            "cli.env",
+            {"MAGIC": "from_cli"},
+            id="no config files override",
+        ),
+        pytest.param(
+            None,
+            "MAGIC=from_cli",
+            None,
+            "+cli.env",
+            {"MAGIC": "from_cli"},
+            id="no config files extend",
+        ),
+        pytest.param(
+            "MAGIC=from_env",
+            "EXTRA=from_cli",
+            '[tool.pytest_env]\nenv_files = [".env", "missing.env"]',
+            "+cli.env",
+            {"MAGIC": "from_env", "EXTRA": "from_cli"},
+            id="extend with missing config file",
+        ),
+    ],
+)
+def test_envfile_cli(  # noqa: PLR0913, PLR0917
+    pytester: pytest.Pytester,
+    env_file_content: str | None,
+    cli_file_content: str,
+    config: str | None,
+    cli_arg: str,
+    expected_env: dict[str, str],
+) -> None:
+    (pytester.path / "test_cli.py").symlink_to(Path(__file__).parent / "template.py")
+
+    if env_file_content:
+        (pytester.path / ".env").write_text(env_file_content, encoding="utf-8")
+    (pytester.path / "cli.env").write_text(cli_file_content, encoding="utf-8")
+    if config:
+        (pytester.path / "pyproject.toml").write_text(config, encoding="utf-8")
+
+    new_env = {
+        "_TEST_ENV": repr(expected_env),
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_PLUGINS": "pytest_env.plugin",
+    }
+
+    with mock.patch.dict(os.environ, new_env, clear=True):
+        result = pytester.runpytest("--envfile", cli_arg)
+
+    result.assert_outcomes(passed=1)
+
+
+@pytest.mark.parametrize(
+    "cli_arg",
+    [
+        pytest.param("nonexistent.env", id="missing file override"),
+        pytest.param("+nonexistent.env", id="missing file extend"),
+    ],
+)
+def test_envfile_cli_missing_file(pytester: pytest.Pytester, cli_arg: str) -> None:
+    pytester.makepyfile(test_it="def test_it() -> None:\n    pass")
+
+    new_env = {
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_PLUGINS": "pytest_env.plugin",
+    }
+
+    with mock.patch.dict(os.environ, new_env, clear=True):
+        result = pytester.runpytest("--envfile", cli_arg)
+
+    assert result.ret != 0
+    error_file = cli_arg.lstrip("+")
+    assert any(f"Environment file not found: {error_file}" in line for line in result.errlines)

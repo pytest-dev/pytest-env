@@ -25,6 +25,13 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     help_msg = "a line separated list of environment variables of the form (FLAG:)NAME=VALUE"
     parser.addini("env", type="linelist", help=help_msg, default=[])
     parser.addini("env_files", type="linelist", help="a line separated list of .env files to load", default=[])
+    parser.addoption(
+        "--envfile",
+        action="store",
+        dest="envfile",
+        default=None,
+        help="path to .env file to load (prefix with + to extend config files, otherwise replaces them)",
+    )
 
 
 @dataclass
@@ -100,10 +107,24 @@ def _load_toml_config(config_path: Path) -> tuple[list[str], list[Entry]]:
 
 
 def _load_env_files(early_config: pytest.Config, env_files: list[str]) -> Generator[Path, None, None]:
-    """Resolve and yield existing env files."""
-    if not env_files:
-        env_files = list(early_config.getini("env_files"))
-    for env_file_str in env_files:
+    """Resolve and yield existing env files, with CLI option taking precedence."""
+    if cli_envfile := getattr(early_config.known_args_namespace, "envfile", None):
+        if cli_envfile.startswith("+"):
+            if not (resolved := early_config.rootpath / cli_envfile[1:]).is_file():
+                msg = f"Environment file not found: {cli_envfile[1:]}"
+                raise FileNotFoundError(msg)
+            for env_file_str in env_files or list(early_config.getini("env_files")):
+                if (config_resolved := early_config.rootpath / env_file_str).is_file():
+                    yield config_resolved
+            yield resolved
+        else:
+            if not (resolved := early_config.rootpath / cli_envfile).is_file():
+                msg = f"Environment file not found: {cli_envfile}"
+                raise FileNotFoundError(msg)
+            yield resolved
+        return
+
+    for env_file_str in env_files or list(early_config.getini("env_files")):
         if (resolved := early_config.rootpath / env_file_str).is_file():
             yield resolved
 
