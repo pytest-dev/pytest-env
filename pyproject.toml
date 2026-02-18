@@ -38,8 +38,10 @@ dynamic = [
 ]
 dependencies = [
   "pytest>=9.0.2",
-  "python-dotenv>=1.2.1",
   "tomli>=2.4; python_version<'3.11'",
+]
+optional-dependencies.envfile = [
+  "python-dotenv>=1.2.1",
 ]
 optional-dependencies.testing = [
   "covdefaults>=2.3",

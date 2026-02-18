@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from dotenv import dotenv_values
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
@@ -75,13 +74,22 @@ def pytest_load_initial_conftests(
         early_config.stash[_env_actions_key] = _format_actions(actions)
 
 
+def _dotenv_values(env_file: Path) -> dict[str, str | None]:
+    try:
+        from dotenv import dotenv_values  # noqa: PLC0415 (late import on purpose)
+    except ModuleNotFoundError:
+        msg = "python-dotenv is required for env file support; install pytest-env[envfile]"
+        raise ImportError(msg) from None
+    return dotenv_values(env_file)
+
+
 def _apply_env_files(
     early_config: pytest.Config,
     env_files_list: list[str],
     actions: list[tuple[str, str, str, str]] | None,
 ) -> None:
     for env_file in _load_env_files(early_config, env_files_list):
-        for key, value in dotenv_values(env_file).items():
+        for key, value in _dotenv_values(env_file).items():
             if value is not None:
                 os.environ[key] = value
                 if actions is not None:

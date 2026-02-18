@@ -70,6 +70,8 @@ pytest-env:
 
 ### Load variables from `.env` files
 
+Install the plugin with the `[envfile]` extra to enable `.env` file support.
+
 Specify `.env` files in your configuration:
 
 ```toml

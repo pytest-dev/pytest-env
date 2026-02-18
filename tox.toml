@@ -2,7 +2,7 @@
 description = "run the tests with pytest"
 package = "wheel"
 wheel_build_env = ".pkg"
-extras = [ "testing" ]
+extras = [ "testing", "envfile" ]
 pass_env = [ "DIFF_AGAINST", "PYTEST_*" ]
 set_env.COVERAGE_FILE = "{env:COVERAGE_FILE:{toxworkdir}{/}.coverage.{envname}}"
 commands = [
