@@ -4,7 +4,6 @@ on:
     tags: ["*"]
 permissions:
   contents: read
-
 env:
   dists-artifact-name: python-package-distributions
 jobs:
