@@ -23,7 +23,31 @@ def test_verbose_shows_set_from_ini(pytester: pytest.Pytester) -> None:
         result = pytester.runpytest("--pytest-env-verbose")
 
     result.assert_outcomes(passed=1)
-    result.stdout.fnmatch_lines(["*pytest-env:*", "*SET*MAGIC=alpha*"])
+    result.stdout.fnmatch_lines(["*pytest-env:*", "*SET*MAGIC=alpha*(from*pytest.ini*"])
+
+
+def test_verbose_shows_ini_source_when_pyproject_lacks_pytest_env(pytester: pytest.Pytester) -> None:
+    (pytester.path / "test_it.py").symlink_to(Path(__file__).parent / "template.py")
+    (pytester.path / "pyproject.toml").write_text(
+        dedent("""\
+            [build-system]
+            requires = ["setuptools>=61"]
+            build-backend = "setuptools.build_meta"
+        """),
+        encoding="utf-8",
+    )
+    (pytester.path / "pytest.ini").write_text("[pytest]\nenv = MAGIC=alpha", encoding="utf-8")
+
+    new_env = {
+        "_TEST_ENV": repr({"MAGIC": "alpha"}),
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_PLUGINS": "pytest_env.plugin",
+    }
+    with mock.patch.dict(os.environ, new_env, clear=True):
+        result = pytester.runpytest("--pytest-env-verbose")
+
+    result.assert_outcomes(passed=1)
+    result.stdout.fnmatch_lines(["*SET*MAGIC=alpha*(from*pytest.ini*"])
 
 
 def test_verbose_shows_set_from_toml(pytester: pytest.Pytester) -> None:
