@@ -146,7 +146,9 @@ def _find_toml_config(early_config: pytest.Config) -> Path | None:
 def _config_source(early_config: pytest.Config) -> str:
     """Describe the configuration source for verbose output."""
     if toml_path := _find_toml_config(early_config):
-        return str(toml_path)
+        _, entries = _load_toml_config(toml_path)
+        if entries:
+            return str(toml_path)
     if early_config.inipath:
         return str(early_config.inipath)
     return "config"  # pragma: no cover
