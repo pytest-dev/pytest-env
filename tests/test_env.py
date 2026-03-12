@@ -409,6 +409,30 @@ def test_env_via_toml(  # noqa: PLR0913, PLR0917
             id="skip if set respects env file",
         ),
         pytest.param(
+            {"MAGIC": "original"},
+            "MAGIC=from_file",
+            dedent("""\
+                [tool.pytest_env]
+                env_files = [".env"]
+                env_files_skip_if_set = true
+            """),
+            {"MAGIC": "original"},
+            "pyproject",
+            id="env_files_skip_if_set pyproject",
+        ),
+        pytest.param(
+            {"MAGIC": "original"},
+            "MAGIC=from_file",
+            dedent("""\
+                [pytest]
+                env_files = .env
+                env_files_skip_if_set = true
+            """),
+            {"MAGIC": "original"},
+            "ini",
+            id="env_files_skip_if_set ini",
+        ),
+        pytest.param(
             {},
             "=no_key\nVALID=yes",
             '[tool.pytest_env]\nenv_files = [".env"]',
@@ -619,6 +643,31 @@ def test_envfile_cli(  # noqa: PLR0913, PLR0917
 
     with mock.patch.dict(os.environ, new_env, clear=True):
         result = pytester.runpytest("--envfile", cli_arg)
+
+    result.assert_outcomes(passed=1)
+
+
+def test_envfile_cli_skip_if_set(pytester: pytest.Pytester) -> None:
+    (pytester.path / "test_cli_skip.py").symlink_to(Path(__file__).parent / "template.py")
+    (pytester.path / "cli.env").write_text("MAGIC=from_cli", encoding="utf-8")
+    (pytester.path / "pyproject.toml").write_text(
+        dedent("""\
+            [tool.pytest_env]
+            env_files_skip_if_set = true
+        """),
+        encoding="utf-8",
+    )
+
+    expected_env = {"MAGIC": "original"}
+    new_env = {
+        "MAGIC": "original",
+        "_TEST_ENV": repr(expected_env),
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_PLUGINS": "pytest_env.plugin",
+    }
+
+    with mock.patch.dict(os.environ, new_env, clear=True):
+        result = pytester.runpytest("--envfile", "cli.env")
 
     result.assert_outcomes(passed=1)
 

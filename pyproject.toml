@@ -2,7 +2,7 @@
 build-backend = "hatchling.build"
 requires = [
   "hatch-vcs>=0.5",
-  "hatchling>=1.28",
+  "hatchling>=1.29",
 ]
 
 [project]
@@ -38,7 +38,7 @@ dynamic = [
 ]
 dependencies = [
   "pytest>=9.0.2",
-  "python-dotenv>=1.2.1",
+  "python-dotenv>=1.2.2",
   "tomli>=2.4; python_version<'3.11'",
 ]
 optional-dependencies.testing = [

@@ -27,6 +27,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     help_msg = "a line separated list of environment variables of the form (FLAG:)NAME=VALUE"
     parser.addini("env", type="linelist", help=help_msg, default=[])
     parser.addini("env_files", type="linelist", help="a line separated list of .env files to load", default=[])
+    parser.addini(
+        "env_files_skip_if_set",
+        type="bool",
+        help="only set .env file variables when not already defined",
+        default=False,
+    )
     parser.addoption(
         "--envfile",
         action="store",
@@ -65,10 +71,19 @@ def pytest_load_initial_conftests(
     actions: list[tuple[str, str, str, str]] = []
 
     env_files_list: list[str] = []
+    env_files_skip_if_set: bool | None = None
     if toml_config := _find_toml_config(early_config):
-        env_files_list, _ = _load_toml_config(toml_config)
+        env_files_list, _, env_files_skip_if_set = _load_toml_config(toml_config)
 
-    _apply_env_files(early_config, env_files_list, actions if verbose else None)
+    if env_files_skip_if_set is None:
+        env_files_skip_if_set = bool(early_config.getini("env_files_skip_if_set"))
+
+    _apply_env_files(
+        early_config,
+        env_files_list,
+        actions if verbose else None,
+        skip_if_set=env_files_skip_if_set,
+    )
     _apply_entries(early_config, actions if verbose else None)
 
     if verbose and actions:
@@ -79,13 +94,20 @@ def _apply_env_files(
     early_config: pytest.Config,
     env_files_list: list[str],
     actions: list[tuple[str, str, str, str]] | None,
+    *,
+    skip_if_set: bool = False,
 ) -> None:
+    preexisting = dict(os.environ) if skip_if_set else {}
     for env_file in _load_env_files(early_config, env_files_list):
         for key, value in dotenv_values(env_file).items():
             if value is not None:
-                os.environ[key] = value
-                if actions is not None:
-                    actions.append(("SET", key, value, str(env_file)))
+                if skip_if_set and key in preexisting:
+                    if actions is not None:
+                        actions.append(("SKIP", key, preexisting[key], str(env_file)))
+                else:
+                    os.environ[key] = value
+                    if actions is not None:
+                        actions.append(("SET", key, value, str(env_file)))
 
 
 def _apply_entries(
@@ -146,7 +168,7 @@ def _find_toml_config(early_config: pytest.Config) -> Path | None:
 def _config_source(early_config: pytest.Config) -> str:
     """Describe the configuration source for verbose output."""
     if toml_path := _find_toml_config(early_config):
-        _, entries = _load_toml_config(toml_path)
+        _, entries, _ = _load_toml_config(toml_path)
         if entries:
             return str(toml_path)
     if early_config.inipath:
@@ -154,7 +176,7 @@ def _config_source(early_config: pytest.Config) -> str:
     return "config"  # pragma: no cover
 
 
-def _load_toml_config(config_path: Path) -> tuple[list[str], list[Entry]]:
+def _load_toml_config(config_path: Path) -> tuple[list[str], list[Entry], bool | None]:
     """Load env_files and entries from TOML config file."""
     with config_path.open("rb") as file_handler:
         config = tomllib.load(file_handler)
@@ -164,13 +186,15 @@ def _load_toml_config(config_path: Path) -> tuple[list[str], list[Entry]]:
 
     pytest_env_config = config.get("pytest_env", {})
     if not pytest_env_config:
-        return [], []
+        return [], [], None
 
     raw_env_files = pytest_env_config.get("env_files")
     env_files = [str(f) for f in raw_env_files] if isinstance(raw_env_files, list) else []
+    raw_skip = pytest_env_config.get("env_files_skip_if_set")
+    env_files_skip_if_set = raw_skip if isinstance(raw_skip, bool) else None
 
     entries = list(_parse_toml_config(pytest_env_config))
-    return env_files, entries
+    return env_files, entries, env_files_skip_if_set
 
 
 def _load_env_files(early_config: pytest.Config, env_files: list[str]) -> Generator[Path, None, None]:
@@ -199,7 +223,7 @@ def _load_env_files(early_config: pytest.Config, env_files: list[str]) -> Genera
 def _load_values(early_config: pytest.Config) -> Iterator[Entry]:
     """Load env entries from config, preferring TOML over INI."""
     if toml_config := _find_toml_config(early_config):
-        _, entries = _load_toml_config(toml_config)
+        _, entries, _ = _load_toml_config(toml_config)
         if entries:
             yield from entries
             return
@@ -223,6 +247,8 @@ def _load_values(early_config: pytest.Config) -> Iterator[Entry]:
 def _parse_toml_config(config: dict[str, Any]) -> Generator[Entry, None, None]:
     for key, entry in config.items():
         if key == "env_files" and isinstance(entry, list):
+            continue
+        if key == "env_files_skip_if_set" and isinstance(entry, bool):
             continue
         if isinstance(entry, dict):
             unset = bool(entry.get("unset"))
