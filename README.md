@@ -93,6 +93,22 @@ pytest --envfile .env.local           # ignore configured env_files, load only t
 pytest --envfile +.env.override       # load configured env_files first, then this file on top
 ```
 
+To keep existing environment variables (including with `--envfile`), set `env_files_skip_if_set = true`:
+
+```toml
+[tool.pytest_env]
+env_files = [".env", ".env.test"]
+env_files_skip_if_set = true
+```
+
+```ini
+[pytest]
+env_files =
+    .env
+    .env.test
+env_files_skip_if_set = true
+```
+
 ### Control variable behavior
 
 Variables set as plain values are assigned directly. For more control, use inline tables with the `transform`,
@@ -107,7 +123,8 @@ TEMP_VAR = { unset = true }
 ```
 
 `transform` expands `{VAR}` placeholders using existing environment variables. `skip_if_set` leaves the variable
-unchanged when it already exists. `unset` removes it entirely (different from setting to empty string).
+unchanged when it already exists. For `.env` files, use `env_files_skip_if_set = true`. `unset` removes it entirely
+(different from setting to empty string).
 
 ### Set different environments for test suites
 
@@ -253,7 +270,8 @@ When multiple sources define the same variable, precedence applies in this order
 1. Inline variables in configuration files (TOML or INI format).
 1. Variables from `.env` files loaded via `env_files`. When using `--envfile`, CLI files take precedence over
    configuration-based `env_files`.
-1. Variables already present in the environment (preserved when `skip_if_set = true` or `D:` flag is used).
+1. Variables already present in the environment (preserved when `skip_if_set = true`, `D:` flag is used, or
+   `env_files_skip_if_set = true`).
 
 When multiple configuration formats are present, TOML native format (`[pytest_env]` / `[tool.pytest_env]`) takes
 precedence over INI format. Among TOML files, the first file with a `pytest_env` section wins, checked in order:
