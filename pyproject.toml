@@ -52,8 +52,8 @@ urls.Tracker = "https://github.com/pytest-dev/pytest-env/issues"
 entry-points.pytest11.env = "pytest_env.plugin"
 
 [tool.hatch]
-build.hooks.vcs.version-file = "src/pytest_env/version.py"
 version.source = "vcs"
+build.hooks.vcs.version-file = "src/pytest_env/version.py"
 
 [tool.ruff]
 line-length = 120
