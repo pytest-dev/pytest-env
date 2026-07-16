@@ -41,15 +41,17 @@ dependencies = [
   "python-dotenv>=1.2.2",
   "tomli>=2.4; python_version<'3.11'",
 ]
-optional-dependencies.testing = [
-  "covdefaults>=2.3",
-  "coverage>=7.13.4",
-  "pytest-mock>=3.15.1",
-]
 urls.Homepage = "https://github.com/pytest-dev/pytest-env"
 urls.Source = "https://github.com/pytest-dev/pytest-env"
 urls.Tracker = "https://github.com/pytest-dev/pytest-env/issues"
 entry-points.pytest11.env = "pytest_env.plugin"
+
+[dependency-groups]
+test = [
+  "covdefaults>=2.3",
+  "coverage>=7.13.4",
+  "pytest-mock>=3.15.1",
+]
 
 [tool.hatch]
 version.source = "vcs"

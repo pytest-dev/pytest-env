@@ -18,7 +18,7 @@ skip_missing_interpreters = true
 description = "run the tests with pytest"
 package = "wheel"
 wheel_build_env = ".pkg"
-extras = [ "testing" ]
+dependency_groups = [ "test" ]
 pass_env = [ "DIFF_AGAINST", "PYTEST_*" ]
 set_env.COVERAGE_FILE = "{env:COVERAGE_FILE:{toxworkdir}{/}.coverage.{envname}}"
 commands = [
@@ -67,7 +67,7 @@ commands = [ [ "ty", "check", "--output-format", "concise", "--error-on-warning"
 [env.dev]
 description = "generate a DEV environment"
 package = "editable"
-extras = [ "testing" ]
+dependency_groups = [ "test" ]
 commands = [
   [ "uv", "pip", "tree" ],
   [ "python", "-c", "import sys; print(sys.executable)" ],
