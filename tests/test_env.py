@@ -8,7 +8,7 @@ from unittest import mock
 
 import pytest
 
-from pytest_env.plugin import _load_toml_config  # noqa: PLC2701
+from pytest_env.plugin import _load_toml_config  # ruff:ignore[import-private-name]
 
 
 @pytest.mark.parametrize(
@@ -277,7 +277,7 @@ def test_env_via_pytest(
         ),
     ],
 )
-def test_env_via_toml(  # noqa: PLR0913, PLR0917
+def test_env_via_toml(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
     pytester: pytest.Pytester,
     env: dict[str, str],
     pyproject_toml: str,
@@ -474,7 +474,7 @@ def test_env_via_toml(  # noqa: PLR0913, PLR0917
         ),
     ],
 )
-def test_env_via_env_file(  # noqa: PLR0913, PLR0917
+def test_env_via_env_file(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
     pytester: pytest.Pytester,
     env: dict[str, str],
     env_file_content: str,
@@ -619,7 +619,7 @@ def test_env_via_pyproject_toml_bad(pytester: pytest.Pytester, toml_name: str) -
         ),
     ],
 )
-def test_envfile_cli(  # noqa: PLR0913, PLR0917
+def test_envfile_cli(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
     pytester: pytest.Pytester,
     env_file_content: str | None,
     cli_file_content: str,
