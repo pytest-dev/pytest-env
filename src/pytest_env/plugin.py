@@ -62,9 +62,9 @@ class Entry:
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_load_initial_conftests(
-    args: list[str],  # noqa: ARG001
+    args: list[str],  # ruff:ignore[unused-function-argument]
     early_config: pytest.Config,
-    parser: pytest.Parser,  # noqa: ARG001
+    parser: pytest.Parser,  # ruff:ignore[unused-function-argument]
 ) -> None:
     """Load environment variables from configuration files."""
     verbose = getattr(early_config.known_args_namespace, "pytest_env_verbose", False)
