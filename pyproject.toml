@@ -104,15 +104,15 @@ max_supported_python = "3.15"
 environment.python-version = "3.14"
 
 [tool.coverage]
+run.source = [
+  "pytest_env",
+  "tests",
+]
 run.branch = true
 run.dynamic_context = "test_function"
 run.parallel = true
 run.plugins = [
   "covdefaults",
-]
-run.source = [
-  "pytest_env",
-  "tests",
 ]
 paths.source = [
   "src",
