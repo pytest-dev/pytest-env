@@ -708,3 +708,27 @@ def test_pyproject_env_with_native_pytest_config(pytester: pytest.Pytester) -> N
     result = pytester.runpytest_subprocess()
     result.assert_outcomes(passed=1)
     assert result.ret == 0
+
+
+@pytest.mark.parametrize("empty_section", ["[pytest_env]\n", "[pytest_env]\nenv_files = []\n"])
+@pytest.mark.parametrize("fallback_location", ["sibling", "parent"])
+def test_empty_env_section_stops_discovery(
+    pytester: pytest.Pytester,
+    monkeypatch: pytest.MonkeyPatch,
+    empty_section: str,
+    fallback_location: str,
+) -> None:
+    monkeypatch.delenv("PYTEST_ENV_INHERITED", raising=False)
+    child = pytester.path / "child"
+    child.mkdir()
+    (child / "pytest.toml").write_text("[pytest]\n" + empty_section, encoding="utf-8")
+    fallback_directory = child if fallback_location == "sibling" else pytester.path
+    (fallback_directory / "pyproject.toml").write_text(
+        '[tool.pytest_env]\nPYTEST_ENV_INHERITED = "parent-value"\n', encoding="utf-8"
+    )
+    (child / "test_env.py").write_text(
+        'import os\ndef test_env():\n    assert "PYTEST_ENV_INHERITED" not in os.environ\n', encoding="utf-8"
+    )
+    result = pytester.runpytest_subprocess("-c", str(child / "pytest.toml"), str(child / "test_env.py"))
+    result.assert_outcomes(passed=1)
+    assert result.ret == 0
