@@ -153,6 +153,7 @@ def _find_toml_config(early_config: pytest.Config) -> Path | None:
         early_config.inipath
         and early_config.inipath.suffix == ".toml"
         and early_config.inipath.name in {"pytest.toml", ".pytest.toml", "pyproject.toml"}
+        and _load_toml_config(early_config.inipath) != ([], [], None)
     ):
         return early_config.inipath
 
@@ -160,7 +161,7 @@ def _find_toml_config(early_config: pytest.Config) -> Path | None:
     for current_path in [start_path, *start_path.parents]:
         for toml_name in ("pytest.toml", ".pytest.toml", "pyproject.toml"):
             toml_file = current_path / toml_name
-            if toml_file.exists():
+            if toml_file.exists() and _load_toml_config(toml_file) != ([], [], None):
                 return toml_file
     return None
 

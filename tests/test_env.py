@@ -693,3 +693,18 @@ def test_envfile_cli_missing_file(pytester: pytest.Pytester, cli_arg: str) -> No
     assert result.ret != 0
     error_file = cli_arg.lstrip("+")
     assert any(f"Environment file not found: {error_file}" in line for line in result.errlines)
+
+
+def test_pyproject_env_with_native_pytest_config(pytester: pytest.Pytester) -> None:
+    pytester.makefile(".toml", pytest='[pytest]\naddopts = ["-q"]\n')
+    (pytester.path / "pyproject.toml").write_text(
+        '[tool.pytest_env]\nNATIVE_CONFIG_ENV = "configured"\n', encoding="utf-8"
+    )
+    pytester.makepyfile("""
+        import os
+        def test_env():
+            assert os.environ["NATIVE_CONFIG_ENV"] == "configured"
+    """)
+    result = pytester.runpytest_subprocess()
+    result.assert_outcomes(passed=1)
+    assert result.ret == 0
