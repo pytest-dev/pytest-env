@@ -153,6 +153,7 @@ def _find_toml_config(early_config: pytest.Config) -> Path | None:
         early_config.inipath
         and early_config.inipath.suffix == ".toml"
         and early_config.inipath.name in {"pytest.toml", ".pytest.toml", "pyproject.toml"}
+        and _has_env_section(early_config.inipath)
     ):
         return early_config.inipath
 
@@ -160,9 +161,18 @@ def _find_toml_config(early_config: pytest.Config) -> Path | None:
     for current_path in [start_path, *start_path.parents]:
         for toml_name in ("pytest.toml", ".pytest.toml", "pyproject.toml"):
             toml_file = current_path / toml_name
-            if toml_file.exists():
+            if toml_file.exists() and _has_env_section(toml_file):
                 return toml_file
     return None
+
+
+def _has_env_section(config_path: Path) -> bool:
+    """Check section presence without treating an explicit empty section as absent."""
+    with config_path.open("rb") as file_handler:
+        config = tomllib.load(file_handler)
+    if config_path.name == "pyproject.toml":
+        config = config.get("tool", {})
+    return "pytest_env" in config
 
 
 def _config_source(early_config: pytest.Config) -> str:
