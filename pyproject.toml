@@ -2,7 +2,7 @@
 build-backend = "hatchling.build"
 requires = [
   "hatch-vcs>=0.5",
-  "hatchling>=1.29",
+  "hatchling>=1.32.4",
 ]
 
 [project]
@@ -38,9 +38,9 @@ dynamic = [
   "version",
 ]
 dependencies = [
-  "pytest>=9.0.2",
-  "python-dotenv>=1.2.2",
-  "tomli>=2.4; python_version<'3.11'",
+  "pytest>=9.1.1",
+  "python-dotenv>=1.2.4",
+  "tomli>=2.4.1; python_version<'3.11'",
 ]
 urls.Homepage = "https://github.com/pytest-dev/pytest-env"
 urls.Source = "https://github.com/pytest-dev/pytest-env"
@@ -50,8 +50,8 @@ entry-points.pytest11.env = "pytest_env.plugin"
 [dependency-groups]
 test = [
   "covdefaults>=2.3",
-  "coverage>=7.13.4",
-  "pytest-mock>=3.15.1",
+  "coverage>=7.16.2",
+  "pytest-mock>=3.16",
 ]
 
 [tool.hatch]
