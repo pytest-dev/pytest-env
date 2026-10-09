@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-import sys
+import tomllib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -15,11 +15,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 _env_actions_key = pytest.StashKey[list[str]]()
-
-if sys.version_info >= (3, 11):  # pragma: >=3.11 cover
-    import tomllib
-else:  # pragma: <3.11 cover
-    import tomli as tomllib
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
