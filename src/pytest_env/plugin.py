@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import tomllib
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 import pytest
 from dotenv import dotenv_values
@@ -194,7 +194,7 @@ def _load_toml_config(config_path: Path) -> tuple[list[str] | None, list[Entry],
         return None, [], None
 
     raw_env_files = pytest_env_config.get("env_files")
-    env_files = [str(f) for f in raw_env_files] if isinstance(raw_env_files, list) else None
+    env_files: Final[list[str] | None] = [str(f) for f in raw_env_files] if isinstance(raw_env_files, list) else None
     raw_skip = pytest_env_config.get("env_files_skip_if_set")
     env_files_skip_if_set = raw_skip if isinstance(raw_skip, bool) else None
 
@@ -204,7 +204,9 @@ def _load_toml_config(config_path: Path) -> tuple[list[str] | None, list[Entry],
 
 def _load_env_files(early_config: pytest.Config, env_files: list[str] | None) -> Generator[Path, None, None]:
     """Resolve and yield existing env files, with CLI option taking precedence."""
-    configured_env_files = env_files if env_files is not None else list(early_config.getini("env_files"))
+    configured_env_files: Final[list[str]] = (
+        env_files if env_files is not None else list(early_config.getini("env_files"))
+    )
     if cli_envfile := getattr(early_config.known_args_namespace, "envfile", None):
         if cli_envfile.startswith("+"):
             if not (resolved := early_config.rootpath / cli_envfile[1:]).is_file():

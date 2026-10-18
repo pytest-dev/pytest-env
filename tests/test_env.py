@@ -787,28 +787,26 @@ def test_native_env_files_override_ini(
 ) -> None:
     (pytester.path / "fallback.env").write_text("INHERITED=from_ini\n", encoding="utf-8")
     (pytester.path / "cli.env").write_text("FROM_CLI=from_cli\n", encoding="utf-8")
-    section = "tool.pytest_env" if config_name == "pyproject.toml" else "pytest_env"
-    native = f"[{section}]\n" + ("env_files = []\n" if empty_env_files else "")
+    native = f"[{'tool.pytest_env' if config_name == 'pyproject.toml' else 'pytest_env'}]\n"
+    if empty_env_files:
+        native += "env_files = []\n"
     if config_name == "pyproject.toml":
         pytester.makeini("[pytest]\nenv_files = fallback.env\n")
     else:
         native += '\n[pytest]\nenv_files = ["fallback.env"]\n'
     (pytester.path / config_name).write_text(native, encoding="utf-8")
-    expected_inherited = None if empty_env_files else "from_ini"
-    expected_cli = "from_cli" if extend else None
+    expected_env: Final[tuple[str | None, str | None]] = (
+        None if empty_env_files else "from_ini",
+        "from_cli" if extend else None,
+    )
     pytester.makepyfile(
         test_env=dedent(f"""\
             import os
 
             def test_env() -> None:
-                assert (os.environ.get("INHERITED"), os.environ.get("FROM_CLI")) == (
-                    {expected_inherited!r}, {expected_cli!r}
-                )
+                assert (os.environ.get("INHERITED"), os.environ.get("FROM_CLI")) == {expected_env!r}
         """),
     )
-    new_env = {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"}
-    args = ["--envfile", "+cli.env"] if extend else []
+    new_env: Final[dict[str, str]] = {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"}
     with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest_subprocess(*args)
-    result.assert_outcomes(passed=1)
-    assert result.ret == pytest.ExitCode.OK
+        pytester.runpytest_subprocess(*(["--envfile", "+cli.env"] if extend else [])).assert_outcomes(passed=1)
