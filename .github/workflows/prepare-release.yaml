@@ -84,5 +84,4 @@ jobs:
           git commit -m "Prepare $NEXT"
           git tag -a "$NEXT" -m "Release $NEXT"
           gh auth setup-git --hostname github.com --force
-          git push origin HEAD:main
-          git push origin "$NEXT"
+          git push --atomic origin HEAD:main "refs/tags/$NEXT"
