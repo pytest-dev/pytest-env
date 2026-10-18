@@ -782,8 +782,9 @@ def child(pytester: pytest.Pytester, mocker: MockerFixture) -> Path:
     "extend",
     [pytest.param(False, id="config-only"), pytest.param(True, id="cli-extend")],
 )
+@pytest.mark.parametrize("pass_python_env", [pytest.param(False, id="unset"), pytest.param(True, id="set")])
 def test_native_env_files_override_ini(
-    pytester: pytest.Pytester, config_name: str, empty_env_files: bool, extend: bool
+    pytester: pytest.Pytester, config_name: str, empty_env_files: bool, extend: bool, pass_python_env: bool
 ) -> None:
     (pytester.path / "fallback.env").write_text("INHERITED=from_ini\n", encoding="utf-8")
     (pytester.path / "cli.env").write_text("FROM_CLI=from_cli\n", encoding="utf-8")
@@ -799,20 +800,34 @@ def test_native_env_files_override_ini(
         None if empty_env_files else "from_ini",
         "from_cli" if extend else None,
     )
+    pythonpath_marker: Final[str] = str(pytester.path / "pythonpath_marker")
+    python_env: Final[dict[str, str]] = (
+        {
+            "PYTHONPATH": os.pathsep.join(filter(None, (os.environ.get("PYTHONPATH"), pythonpath_marker))),
+            "PYTHONDONTWRITEBYTECODE": "1",
+        }
+        if pass_python_env
+        else {}
+    )
     pytester.makepyfile(
         test_env=dedent(f"""\
             import os
 
             def test_env() -> None:
                 assert (os.environ.get("INHERITED"), os.environ.get("FROM_CLI")) == {expected_env!r}
+                assert ({pythonpath_marker!r} in os.environ["PYTHONPATH"].split(os.pathsep),
+                        os.environ.get("PYTHONDONTWRITEBYTECODE")) == (
+                    {pass_python_env!r}, {python_env.get("PYTHONDONTWRITEBYTECODE")!r}
+                )
         """),
     )
-    passthrough: Final[list[str]] = ["PYTHONPATH", "PYTHONDONTWRITEBYTECODE"]
-    env: Final[dict[str, str]] = {var: os.environ[var] for var in passthrough if var in os.environ}
-    new_env: Final[dict[str, str]] = {
-        **env,
-        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
-        "PYTEST_PLUGINS": "pytest_env.plugin",
-    }
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        pytester.runpytest_subprocess(*(["--envfile", "+cli.env"] if extend else [])).assert_outcomes(passed=1)
+    system_env: Final[dict[str, str]] = {key: os.environ[key] for key in ("SYSTEMROOT", "WINDIR") if key in os.environ}
+    with mock.patch.dict(os.environ, python_env, clear=True):
+        new_env: Final[dict[str, str]] = {
+            **system_env,
+            **{key: os.environ[key] for key in ("PYTHONPATH", "PYTHONDONTWRITEBYTECODE") if key in os.environ},
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+            "PYTEST_PLUGINS": "pytest_env.plugin",
+        }
+        with mock.patch.dict(os.environ, new_env, clear=True):
+            pytester.runpytest_subprocess(*(["--envfile", "+cli.env"] if extend else [])).assert_outcomes(passed=1)
