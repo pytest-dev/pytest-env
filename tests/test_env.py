@@ -807,9 +807,8 @@ def test_native_env_files_override_ini(
                 assert (os.environ.get("INHERITED"), os.environ.get("FROM_CLI")) == {expected_env!r}
         """),
     )
-    env: dict[str, str] = {}
-    if "PYTHONPATH" in os.environ:
-        env["PYTHONPATH"] = os.environ["PYTHONPATH"]
+    passthrough: Final[list[str]] = ["PYTHONPATH", "PYTHONDONTWRITEBYTECODE"]
+    env: Final[dict[str, str]] = {var: os.environ[var] for var in passthrough if var in os.environ}
     new_env: Final[dict[str, str]] = {
         **env,
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
