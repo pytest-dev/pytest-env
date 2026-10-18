@@ -96,9 +96,9 @@ def _apply_env_files(
     for env_file in _load_env_files(early_config, env_files_list):
         for key, value in dotenv_values(env_file).items():
             if value is not None:
-                if skip_if_set and key in preexisting:
+                if skip_if_set and (env_key := key.upper() if os.name == "nt" else key) in preexisting:
                     if actions is not None:
-                        actions.append(("SKIP", key, preexisting[key], str(env_file)))
+                        actions.append(("SKIP", key, preexisting[env_key], str(env_file)))
                 else:
                     os.environ[key] = value
                     if actions is not None:
