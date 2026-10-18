@@ -4,12 +4,13 @@ import os
 import re
 from pathlib import Path
 from textwrap import dedent
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Final
 from unittest import mock
 
 import pytest
 
-from pytest_env.plugin import _load_toml_config  # ruff:ignore[import-private-name]
+from pytest_env.plugin import _apply_env_files, _load_toml_config  # ruff:ignore[import-private-name]
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -810,3 +811,26 @@ def test_native_env_files_override_ini(
     new_env: Final[dict[str, str]] = {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"}
     with mock.patch.dict(os.environ, new_env, clear=True):
         pytester.runpytest_subprocess(*(["--envfile", "+cli.env"] if extend else [])).assert_outcomes(passed=1)
+
+
+@pytest.mark.parametrize("platform", ["nt", "posix"])
+@pytest.mark.parametrize("file_key", ["PYTEST_ENV_CASE", "pytest_env_case"])
+def test_env_files_skip_if_set_respects_platform_case(
+    tmp_path: Path, mocker: MockerFixture, platform: str, file_key: str
+) -> None:
+    env = {"PYTEST_ENV_CASE": "original"}
+    mocker.patch("pytest_env.plugin.os", SimpleNamespace(name=platform, environ=env))
+    (tmp_path / ".env").write_text(f"{file_key}=from_file\n", encoding="utf-8")
+    config = mocker.Mock(spec=pytest.Config)
+    config.rootpath = tmp_path
+    config.known_args_namespace = SimpleNamespace(envfile=None)
+    actions: list[tuple[str, str, str, str]] = []
+
+    _apply_env_files(config, [".env"], actions, skip_if_set=True)
+
+    if platform == "posix" and file_key == "pytest_env_case":
+        assert env == {"PYTEST_ENV_CASE": "original", "pytest_env_case": "from_file"}
+        assert actions == [("SET", file_key, "from_file", str(tmp_path / ".env"))]
+    else:
+        assert env == {"PYTEST_ENV_CASE": "original"}
+        assert actions == [("SKIP", file_key, "original", str(tmp_path / ".env"))]
