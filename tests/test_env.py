@@ -766,9 +766,22 @@ def child(pytester: pytest.Pytester, mocker: MockerFixture) -> Path:
     return child
 
 
-@pytest.mark.parametrize("config_name", ["pytest.toml", ".pytest.toml", "pyproject.toml"])
-@pytest.mark.parametrize("empty_env_files", [False, True])
-@pytest.mark.parametrize("extend", [False, True])
+@pytest.mark.parametrize(
+    "config_name",
+    [
+        pytest.param("pytest.toml", id="pytest-toml"),
+        pytest.param(".pytest.toml", id="hidden-pytest-toml"),
+        pytest.param("pyproject.toml", id="pyproject-toml"),
+    ],
+)
+@pytest.mark.parametrize(
+    "empty_env_files",
+    [pytest.param(False, id="omitted"), pytest.param(True, id="empty")],
+)
+@pytest.mark.parametrize(
+    "extend",
+    [pytest.param(False, id="config-only"), pytest.param(True, id="cli-extend")],
+)
 def test_native_env_files_override_ini(
     pytester: pytest.Pytester, config_name: str, empty_env_files: bool, extend: bool
 ) -> None:
@@ -787,9 +800,10 @@ def test_native_env_files_override_ini(
         test_env=dedent(f"""\
             import os
 
-            def test_env():
-                assert os.environ.get("INHERITED") == {expected_inherited!r}
-                assert os.environ.get("FROM_CLI") == {expected_cli!r}
+            def test_env() -> None:
+                assert (os.environ.get("INHERITED"), os.environ.get("FROM_CLI")) == (
+                    {expected_inherited!r}, {expected_cli!r}
+                )
         """),
     )
     new_env = {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"}
