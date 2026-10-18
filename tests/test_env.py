@@ -4,13 +4,12 @@ import os
 import re
 from pathlib import Path
 from textwrap import dedent
-from types import SimpleNamespace
 from typing import TYPE_CHECKING, Final
 from unittest import mock
 
 import pytest
 
-from pytest_env.plugin import _apply_env_files, _load_toml_config  # ruff:ignore[import-private-name]
+from pytest_env.plugin import _load_toml_config  # ruff:ignore[import-private-name]
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
@@ -813,24 +812,36 @@ def test_native_env_files_override_ini(
         pytester.runpytest_subprocess(*(["--envfile", "+cli.env"] if extend else [])).assert_outcomes(passed=1)
 
 
-@pytest.mark.parametrize("platform", ["nt", "posix"])
-@pytest.mark.parametrize("file_key", ["PYTEST_ENV_CASE", "pytest_env_case"])
-def test_env_files_skip_if_set_respects_platform_case(
-    tmp_path: Path, mocker: MockerFixture, platform: str, file_key: str
-) -> None:
-    env = {"PYTEST_ENV_CASE": "original"}
-    mocker.patch("pytest_env.plugin.os", SimpleNamespace(name=platform, environ=env))
-    (tmp_path / ".env").write_text(f"{file_key}=from_file\n", encoding="utf-8")
-    config = mocker.Mock(spec=pytest.Config)
-    config.rootpath = tmp_path
-    config.known_args_namespace = SimpleNamespace(envfile=None)
-    actions: list[tuple[str, str, str, str]] = []
+@pytest.mark.parametrize(
+    "file_key",
+    [
+        pytest.param("PYTEST_ENV_CASE", id="same-case"),
+        pytest.param("pytest_env_case", id="different-case"),
+    ],
+)
+def test_env_files_skip_if_set_respects_platform_case(pytester: pytest.Pytester, file_key: str) -> None:
+    expected: Final[str] = "from_file" if os.name != "nt" and file_key == "pytest_env_case" else "original"
+    (pytester.path / ".env").write_text(f"{file_key}=from_file\n", encoding="utf-8")
+    (pytester.path / "pytest.ini").write_text(
+        "[pytest]\nenv_files = .env\nenv_files_skip_if_set = true\n", encoding="utf-8"
+    )
+    pytester.makepyfile(
+        test_case=(
+            f'import os\ndef test_case() -> None:\n    assert os.environ["{file_key}"] == {expected!r}\n'
+            '    assert os.environ["PYTEST_ENV_CASE"] == "original"\n'
+        )
+    )
+    with mock.patch.dict(
+        os.environ,
+        {
+            "PYTEST_ENV_CASE": "original",
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+            "PYTEST_PLUGINS": "pytest_env.plugin",
+        },
+        clear=True,
+    ):
+        result: Final[pytest.RunResult] = pytester.runpytest("--pytest-env-verbose")
 
-    _apply_env_files(config, [".env"], actions, skip_if_set=True)
-
-    if platform == "posix" and file_key == "pytest_env_case":
-        assert env == {"PYTEST_ENV_CASE": "original", "pytest_env_case": "from_file"}
-        assert actions == [("SET", file_key, "from_file", str(tmp_path / ".env"))]
-    else:
-        assert env == {"PYTEST_ENV_CASE": "original"}
-        assert actions == [("SKIP", file_key, "original", str(tmp_path / ".env"))]
+    result.assert_outcomes(passed=1)
+    action: Final[str] = "SET" if expected == "from_file" else "SKIP"
+    result.stdout.fnmatch_lines([f"*{action}*{file_key}={expected}*(from*.env*"])
