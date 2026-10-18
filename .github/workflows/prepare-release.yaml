@@ -30,6 +30,8 @@ jobs:
           BUMP: ${{ inputs.bump }}
         run: |
           set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
           current=$(git tag --list | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
           IFS=. read -r major minor patch <<< "$current"
           case "$BUMP" in
