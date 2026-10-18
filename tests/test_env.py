@@ -807,6 +807,13 @@ def test_native_env_files_override_ini(
                 assert (os.environ.get("INHERITED"), os.environ.get("FROM_CLI")) == {expected_env!r}
         """),
     )
-    new_env: Final[dict[str, str]] = {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"}
+    env: dict[str, str] = {}
+    if "PYTHONPATH" in os.environ:
+        env["PYTHONPATH"] = os.environ["PYTHONPATH"]
+    new_env: Final[dict[str, str]] = {
+        **env,
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_PLUGINS": "pytest_env.plugin",
+    }
     with mock.patch.dict(os.environ, new_env, clear=True):
         pytester.runpytest_subprocess(*(["--envfile", "+cli.env"] if extend else [])).assert_outcomes(passed=1)
