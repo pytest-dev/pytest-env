@@ -65,7 +65,7 @@ def pytest_load_initial_conftests(
     verbose = getattr(early_config.known_args_namespace, "pytest_env_verbose", False)
     actions: list[tuple[str, str, str, str]] = []
 
-    env_files_list: list[str] = []
+    env_files_list: list[str] | None = None
     env_files_skip_if_set: bool | None = None
     if toml_config := _find_toml_config(early_config):
         env_files_list, _, env_files_skip_if_set = _load_toml_config(toml_config)
@@ -87,7 +87,7 @@ def pytest_load_initial_conftests(
 
 def _apply_env_files(
     early_config: pytest.Config,
-    env_files_list: list[str],
+    env_files_list: list[str] | None,
     actions: list[tuple[str, str, str, str]] | None,
     *,
     skip_if_set: bool = False,
@@ -181,7 +181,7 @@ def _config_source(early_config: pytest.Config) -> str:
     return "config"  # pragma: no cover
 
 
-def _load_toml_config(config_path: Path) -> tuple[list[str], list[Entry], bool | None]:
+def _load_toml_config(config_path: Path) -> tuple[list[str] | None, list[Entry], bool | None]:
     """Load env_files and entries from TOML config file."""
     with config_path.open("rb") as file_handler:
         config = tomllib.load(file_handler)
@@ -191,10 +191,10 @@ def _load_toml_config(config_path: Path) -> tuple[list[str], list[Entry], bool |
 
     pytest_env_config = config.get("pytest_env", {})
     if not pytest_env_config:
-        return [], [], None
+        return None, [], None
 
     raw_env_files = pytest_env_config.get("env_files")
-    env_files = [str(f) for f in raw_env_files] if isinstance(raw_env_files, list) else []
+    env_files = [str(f) for f in raw_env_files] if isinstance(raw_env_files, list) else None
     raw_skip = pytest_env_config.get("env_files_skip_if_set")
     env_files_skip_if_set = raw_skip if isinstance(raw_skip, bool) else None
 
@@ -202,14 +202,15 @@ def _load_toml_config(config_path: Path) -> tuple[list[str], list[Entry], bool |
     return env_files, entries, env_files_skip_if_set
 
 
-def _load_env_files(early_config: pytest.Config, env_files: list[str]) -> Generator[Path, None, None]:
+def _load_env_files(early_config: pytest.Config, env_files: list[str] | None) -> Generator[Path, None, None]:
     """Resolve and yield existing env files, with CLI option taking precedence."""
+    configured_env_files = env_files if env_files is not None else list(early_config.getini("env_files"))
     if cli_envfile := getattr(early_config.known_args_namespace, "envfile", None):
         if cli_envfile.startswith("+"):
             if not (resolved := early_config.rootpath / cli_envfile[1:]).is_file():
                 msg = f"Environment file not found: {cli_envfile[1:]}"
                 raise FileNotFoundError(msg)
-            for env_file_str in env_files or list(early_config.getini("env_files")):
+            for env_file_str in configured_env_files:
                 if (config_resolved := early_config.rootpath / env_file_str).is_file():
                     yield config_resolved
             yield resolved
@@ -220,7 +221,7 @@ def _load_env_files(early_config: pytest.Config, env_files: list[str]) -> Genera
             yield resolved
         return
 
-    for env_file_str in env_files or list(early_config.getini("env_files")):
+    for env_file_str in configured_env_files:
         if (resolved := early_config.rootpath / env_file_str).is_file():
             yield resolved
 

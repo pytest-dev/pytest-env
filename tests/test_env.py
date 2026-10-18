@@ -764,3 +764,51 @@ def child(pytester: pytest.Pytester, mocker: MockerFixture) -> Path:
     child: Final[Path] = pytester.path / "child"
     child.mkdir()
     return child
+
+
+@pytest.mark.parametrize(
+    "config_name",
+    [
+        pytest.param("pytest.toml", id="pytest-toml"),
+        pytest.param(".pytest.toml", id="hidden-pytest-toml"),
+        pytest.param("pyproject.toml", id="pyproject-toml"),
+    ],
+)
+@pytest.mark.parametrize(
+    "empty_env_files",
+    [pytest.param(False, id="omitted"), pytest.param(True, id="empty")],
+)
+@pytest.mark.parametrize(
+    "extend",
+    [pytest.param(False, id="config-only"), pytest.param(True, id="cli-extend")],
+)
+def test_native_env_files_override_ini(
+    pytester: pytest.Pytester, config_name: str, empty_env_files: bool, extend: bool
+) -> None:
+    (pytester.path / "fallback.env").write_text("INHERITED=from_ini\n", encoding="utf-8")
+    (pytester.path / "cli.env").write_text("FROM_CLI=from_cli\n", encoding="utf-8")
+    section = "tool.pytest_env" if config_name == "pyproject.toml" else "pytest_env"
+    native = f"[{section}]\n" + ("env_files = []\n" if empty_env_files else "")
+    if config_name == "pyproject.toml":
+        pytester.makeini("[pytest]\nenv_files = fallback.env\n")
+    else:
+        native += '\n[pytest]\nenv_files = ["fallback.env"]\n'
+    (pytester.path / config_name).write_text(native, encoding="utf-8")
+    expected_inherited = None if empty_env_files else "from_ini"
+    expected_cli = "from_cli" if extend else None
+    pytester.makepyfile(
+        test_env=dedent(f"""\
+            import os
+
+            def test_env() -> None:
+                assert (os.environ.get("INHERITED"), os.environ.get("FROM_CLI")) == (
+                    {expected_inherited!r}, {expected_cli!r}
+                )
+        """),
+    )
+    new_env = {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"}
+    args = ["--envfile", "+cli.env"] if extend else []
+    with mock.patch.dict(os.environ, new_env, clear=True):
+        result = pytester.runpytest_subprocess(*args)
+    result.assert_outcomes(passed=1)
+    assert result.ret == pytest.ExitCode.OK
