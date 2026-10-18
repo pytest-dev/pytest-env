@@ -201,8 +201,7 @@ env = [
 ```
 
 In `pytest.toml` / `.pytest.toml`, this pytest-native `[pytest]` table is an alternative to the plugin-specific
-`[pytest_env]` TOML table described above. Both forms work there, so `pytest.toml` does not have to use
-`[pytest_env]`.
+`[pytest_env]` TOML table described above. Both forms work there, so `pytest.toml` does not have to use `[pytest_env]`.
 
 Prefix flags modify behavior. Flags are case-insensitive and can be combined in any order (e.g., `R:D:KEY=VALUE`):
 
@@ -243,8 +242,8 @@ MESSAGE="hello\nworld"
 API_KEY=${FALLBACK_KEY:-default_key}
 ```
 
-Missing `.env` files from configuration are silently skipped. Paths are resolved relative to the project root.
-An explicit `env_files = []` in native TOML configuration disables INI-style `env_files` fallback; omitting the key
+Missing `.env` files from configuration are silently skipped. Paths are resolved relative to the project root. An
+explicit `env_files = []` in native TOML configuration disables INI-style `env_files` fallback; omitting the key
 preserves that fallback. CLI `--envfile` paths still load in either case.
 
 ### CLI options
