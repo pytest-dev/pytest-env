@@ -8,6 +8,8 @@
 A `pytest` plugin that sets environment variables from `pyproject.toml`, `pytest.toml`, `.pytest.toml`, or `pytest.ini`
 configuration files. It can also load variables from `.env` files.
 
+[Changelog](CHANGELOG.md).
+
 <!-- mdformat-toc start --slug=github --no-anchors --maxlevel=6 --minlevel=2 -->
 
 - [Installation](#installation)

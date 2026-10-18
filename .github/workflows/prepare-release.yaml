@@ -1,0 +1,89 @@
+name: Prepare release
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version increment
+        required: true
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+permissions: {}
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+jobs:
+  prepare:
+    if: github.repository == 'pytest-dev/pytest-env' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-26.04
+    environment: release-auth
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Assemble the release notes
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          current=$(git tag --list | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+          IFS=. read -r major minor patch <<< "$current"
+          case "$BUMP" in
+            major) next="$((major + 1)).0.0" ;;
+            minor) next="$major.$((minor + 1)).0" ;;
+            patch) next="$major.$minor.$((patch + 1))" ;;
+          esac
+          if [[ -n "$(git tag --list "$next")" ]]; then
+            echo "::error::tag $next already exists"
+            exit 1
+          fi
+          mapfile -d '' fragments < <(find changelog.d -maxdepth 1 -type f -name '*.md' -print0 | sort -z)
+          if (( ${#fragments[@]} == 0 )); then
+            echo "::error::no news fragments to release"
+            exit 1
+          fi
+          for fragment in "${fragments[@]}"; do
+            if [[ ! "$fragment" =~ ^changelog\.d/[0-9]+\.(feature|bugfix|doc)\.md$ || ! -s "$fragment" ]]; then
+              echo "::error::invalid or empty news fragment: $fragment"
+              exit 1
+            fi
+          done
+          {
+            printf '# Changelog\n\n## %s (%s)\n\n' "$next" "$(date -u +%F)"
+            for fragment in "${fragments[@]}"; do
+              printf '%s\n\n' "$(cat "$fragment")"
+            done
+            tail -n +3 CHANGELOG.md
+          } > "$RUNNER_TEMP/changelog.md"
+          mv "$RUNNER_TEMP/changelog.md" CHANGELOG.md
+          git rm -- "${fragments[@]}"
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+      - id: token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+      - name: Commit and tag the release
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          APP_SLUG: ${{ steps.token.outputs.app-slug }}
+          NEXT: ${{ steps.version.outputs.next }}
+        run: |
+          set -euo pipefail
+          app_user_id=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${app_user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git add CHANGELOG.md changelog.d
+          git commit -m "Prepare $NEXT"
+          git tag -a "$NEXT" -m "Release $NEXT"
+          gh auth setup-git --hostname github.com --force
+          git push --atomic origin HEAD:main "refs/tags/$NEXT"

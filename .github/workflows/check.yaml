@@ -5,6 +5,7 @@ on:
     branches: ["main"]
     tags-ignore: ["**"]
   pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   schedule:
     - cron: "0 8 * * *"
 concurrency:
@@ -52,3 +53,34 @@ jobs:
         env:
           PYTEST_ADDOPTS: "-vv --durations=20"
           DIFF_AGAINST: HEAD
+  news:
+    name: News fragment
+    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'skip news')
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require a changelog entry
+        run: |
+          found=0
+          while IFS= read -r path; do
+            if [[ "$path" =~ ^changelog\.d/[0-9]+\.(feature|bugfix|doc)\.md$ && -s "$path" ]]; then
+              found=1
+            fi
+          done < <(git diff --name-only "origin/$GITHUB_BASE_REF"...HEAD)
+          if (( found == 0 )); then
+            echo "::error::add a nonempty changelog.d/<PR>.<type>.md fragment or apply skip news"
+            exit 1
+          fi
+  gate:
+    name: Required checks pass
+    if: always()
+    needs: [test, news]
+    runs-on: ubuntu-26.04
+    steps:
+      - env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          jq -e 'all(to_entries[]; .value.result == "success" or (.key == "news" and .value.result == "skipped"))' <<< "$NEEDS_JSON"

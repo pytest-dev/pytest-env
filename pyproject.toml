@@ -40,6 +40,7 @@ dependencies = [
   "pytest>=9.1.1",
   "python-dotenv>=1.2.4",
 ]
+urls.Changelog = "https://github.com/pytest-dev/pytest-env/blob/main/CHANGELOG.md"
 urls.Homepage = "https://github.com/pytest-dev/pytest-env"
 urls.Source = "https://github.com/pytest-dev/pytest-env"
 urls.Tracker = "https://github.com/pytest-dev/pytest-env/issues"

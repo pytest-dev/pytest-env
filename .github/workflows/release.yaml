@@ -14,6 +14,14 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Require a versioned changelog entry
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [[ ! "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || ! grep -Fq "## $TAG (" CHANGELOG.md; then
+            echo "::error::$TAG has no matching changelog entry"
+            exit 1
+          fi
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
@@ -23,6 +31,12 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build package
         run: uv build --python 3.15 --python-preference only-managed --sdist --wheel . --out-dir dist
+      - name: Match distributions to the tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          test -f "dist/pytest_env-${TAG}.tar.gz"
+          compgen -G "dist/pytest_env-${TAG}-*.whl" >/dev/null
       - name: Store the distribution packages
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
