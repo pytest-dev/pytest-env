@@ -8,12 +8,14 @@ requires = [
 
 [project]
 name = "pytest-env"
+import-names = [ "pytest_env" ]
 description = "pytest plugin that allows you to add environment variables."
 keywords = [
   "env",
   "pytest",
 ]
-license.file = "LICENSE"
+license = "MIT"
+license-files = [ "LICENSE" ]
 maintainers = [
   { name = "Bernát Gábor", email = "gaborjbernat@gmail.com" },
 ]
@@ -21,7 +23,6 @@ requires-python = ">=3.11"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
