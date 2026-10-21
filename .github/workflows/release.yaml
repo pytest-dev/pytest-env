@@ -153,5 +153,6 @@ jobs:
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
         run: gh release create "$TAG" --verify-tag --title "$TAG" --notes-file "$RUNNER_TEMP/github-release-notes/release-notes.md"
