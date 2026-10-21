@@ -19,6 +19,8 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+    secrets:
+      RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
     with:
       bump: ${{ inputs.bump }}
       changelog: CHANGELOG.md
