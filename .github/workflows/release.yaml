@@ -70,7 +70,7 @@ jobs:
           if-no-files-found: error
           retention-days: 1
   github-notes:
-    needs: contributor-metadata
+    needs: [contributor-metadata, previous-tag]
     runs-on: ubuntu-26.04
     permissions:
       contents: read
@@ -95,6 +95,7 @@ jobs:
       - uses: tox-dev/github-workflows/render-release-notes@1b7d58c3e744b505215e1cb11697a80737b0e94d
         with:
           tag: ${{ github.ref_name }}
+          previous: ${{ needs.previous-tag.outputs.tag }}
           changelog: CHANGELOG.md
           artifact-url: https://pypi.org/project/pytest-env/${{ github.ref_name }}/
           generated-notes: ${{ runner.temp }}/contributor-metadata/generated-notes.md
