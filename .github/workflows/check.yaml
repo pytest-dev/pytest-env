@@ -5,7 +5,7 @@ on:
     branches: ["main"]
     tags-ignore: ["**"]
   pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    types: [opened, synchronize, reopened]
   schedule:
     - cron: "0 8 * * *"
 concurrency:
@@ -53,34 +53,35 @@ jobs:
         env:
           PYTEST_ADDOPTS: "-vv --durations=20"
           DIFF_AGAINST: HEAD
-  news:
-    name: News fragment
-    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'skip news')
+  hook-update-cooldown:
+    name: Hook update cooldown
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-26.04
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: tox-dev/github-workflows/check-hook-update-cooldown@e2d5e308194a31710039f3237b7157431c0e38b5 # v2.0.0
         with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Require a changelog entry
-        run: |
-          found=0
-          while IFS= read -r path; do
-            if [[ "$path" =~ ^changelog\.d/[0-9]+\.(feature|bugfix|doc)\.md$ && -s "$path" ]]; then
-              found=1
-            fi
-          done < <(git diff --name-only "origin/$GITHUB_BASE_REF"...HEAD)
-          if (( found == 0 )); then
-            echo "::error::add a nonempty changelog.d/<PR>.<type>.md fragment or apply skip news"
-            exit 1
-          fi
+          release-app-client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+        env:
+          GH_TOKEN: ${{ github.token }}
   gate:
     name: Required checks pass
-    if: always()
-    needs: [test, news]
+    if: ${{ !cancelled() }} # codespell:ignore cancelled
+    needs: [test, hook-update-cooldown]
     runs-on: ubuntu-26.04
     steps:
       - env:
           NEEDS_JSON: ${{ toJSON(needs) }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          jq -e 'all(to_entries[]; .value.result == "success" or (.key == "news" and .value.result == "skipped"))' <<< "$NEEDS_JSON"
+          jq -e --arg event "$EVENT_NAME" '
+            all(
+              to_entries[];
+              .value.result == "success" or
+              ((.key == "hook-update-cooldown") and
+                .value.result == "skipped" and $event != "pull_request")
+            )
+          ' <<<"$NEEDS_JSON"
