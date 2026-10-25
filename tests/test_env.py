@@ -117,15 +117,16 @@ if TYPE_CHECKING:
         ),
     ],
 )
-def test_env_via_pytest(
+def test_env_via_pytest(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
     pytester: pytest.Pytester,
+    env_test_template: str,
     env: dict[str, str],
     ini: str,
     expected_env: dict[str, str],
     request: pytest.FixtureRequest,
 ) -> None:
     test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
-    (pytester.path / f"test_{test_name}.py").symlink_to(Path(__file__).parent / "template.py")
+    (pytester.path / f"test_{test_name}.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / "pytest.ini").write_text(ini, encoding="utf-8")
 
     new_env = {
@@ -283,6 +284,7 @@ def test_env_via_pytest(
 )
 def test_env_via_toml(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
     pytester: pytest.Pytester,
+    env_test_template: str,
     env: dict[str, str],
     pyproject_toml: str,
     pytest_toml: str,
@@ -306,7 +308,7 @@ def test_env_via_toml(  # ruff:ignore[too-many-arguments, too-many-positional-ar
         if ini:
             (pytester.path / "pytest.ini").write_text(ini, encoding="utf-8")
 
-    (test_dir / f"test_{test_name}.py").symlink_to(Path(__file__).parent / "template.py")
+    (test_dir / f"test_{test_name}.py").write_text(env_test_template, encoding="utf-8")
 
     new_env = {
         **env,
@@ -480,6 +482,7 @@ def test_env_via_toml(  # ruff:ignore[too-many-arguments, too-many-positional-ar
 )
 def test_env_via_env_file(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
     pytester: pytest.Pytester,
+    env_test_template: str,
     env: dict[str, str],
     env_file_content: str,
     config: str,
@@ -488,7 +491,7 @@ def test_env_via_env_file(  # ruff:ignore[too-many-arguments, too-many-positiona
     request: pytest.FixtureRequest,
 ) -> None:
     test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
-    (pytester.path / f"test_{test_name}.py").symlink_to(Path(__file__).parent / "template.py")
+    (pytester.path / f"test_{test_name}.py").write_text(env_test_template, encoding="utf-8")
     if env_file_content:
         (pytester.path / ".env").write_text(env_file_content, encoding="utf-8")
     config_file_names = {"pyproject": "pyproject.toml", "pytest.toml": "pytest.toml", "ini": "pytest.ini"}
@@ -625,13 +628,14 @@ def test_env_via_pyproject_toml_bad(pytester: pytest.Pytester, toml_name: str) -
 )
 def test_envfile_cli(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
     pytester: pytest.Pytester,
+    env_test_template: str,
     env_file_content: str | None,
     cli_file_content: str,
     config: str | None,
     cli_arg: str,
     expected_env: dict[str, str],
 ) -> None:
-    (pytester.path / "test_cli.py").symlink_to(Path(__file__).parent / "template.py")
+    (pytester.path / "test_cli.py").write_text(env_test_template, encoding="utf-8")
 
     if env_file_content:
         (pytester.path / ".env").write_text(env_file_content, encoding="utf-8")
@@ -651,8 +655,8 @@ def test_envfile_cli(  # ruff:ignore[too-many-arguments, too-many-positional-arg
     result.assert_outcomes(passed=1)
 
 
-def test_envfile_cli_skip_if_set(pytester: pytest.Pytester) -> None:
-    (pytester.path / "test_cli_skip.py").symlink_to(Path(__file__).parent / "template.py")
+def test_envfile_cli_skip_if_set(pytester: pytest.Pytester, env_test_template: str) -> None:
+    (pytester.path / "test_cli_skip.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / "cli.env").write_text("MAGIC=from_cli", encoding="utf-8")
     (pytester.path / "pyproject.toml").write_text(
         dedent("""\
