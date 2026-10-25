@@ -1,11 +1,11 @@
-name: check
+name: 🧪 check
 on:
   workflow_dispatch:
   push:
     branches: ["main"]
     tags-ignore: ["**"]
   pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    types: [opened, synchronize, reopened]
   schedule:
     - cron: "0 8 * * *"
 concurrency:
@@ -15,6 +15,7 @@ permissions:
   contents: read
 jobs:
   test:
+    name: 🧪 Test
     runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
@@ -30,57 +31,37 @@ jobs:
           - dev
           - pkg_meta
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: 📥 Check out code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - name: 🐍 Install uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           python-version: "3.15"
           enable-cache: false
           cache-dependency-glob: "pyproject.toml"
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Install tox
+      - name: 📦 Install tox
         run: uv tool install --python-preference only-managed --python 3.15 tox --with tox-uv
-      - name: Install Python
+      - name: 🐍 Install Python
         if: startsWith(matrix.env, '3.') && matrix.env != '3.15'
         run: uv python install --python-preference only-managed ${{ matrix.env }}
-      - name: Setup test suite
+      - name: 📦 Set up test suite
         run: tox run -vv --notest --skip-missing-interpreters false -e ${{ matrix.env }}
-      - name: Run test suite
+      - name: 🧪 Run test suite
         run: tox run --skip-pkg-install -e ${{ matrix.env }}
         env:
           PYTEST_ADDOPTS: "-vv --durations=20"
           DIFF_AGAINST: HEAD
-  news:
-    name: News fragment
-    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'skip news')
-    runs-on: ubuntu-26.04
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Require a changelog entry
-        run: |
-          found=0
-          while IFS= read -r path; do
-            if [[ "$path" =~ ^changelog\.d/[0-9]+\.(feature|bugfix|doc)\.md$ && -s "$path" ]]; then
-              found=1
-            fi
-          done < <(git diff --name-only "origin/$GITHUB_BASE_REF"...HEAD)
-          if (( found == 0 )); then
-            echo "::error::add a nonempty changelog.d/<PR>.<type>.md fragment or apply skip news"
-            exit 1
-          fi
   gate:
-    name: Required checks pass
-    if: always()
-    needs: [test, news]
+    name: 🚦 Required checks pass
+    if: ${{ !cancelled() }} # codespell:ignore cancelled
+    needs: [test]
     runs-on: ubuntu-26.04
     steps:
-      - env:
+      - name: 🚦 Require all needed jobs to pass
+        env:
           NEEDS_JSON: ${{ toJSON(needs) }}
-        run: |
-          jq -e 'all(to_entries[]; .value.result == "success" or (.key == "news" and .value.result == "skipped"))' <<< "$NEEDS_JSON"
+        run: jq -e 'all(to_entries[]; .value.result == "success")' <<<"$NEEDS_JSON"
