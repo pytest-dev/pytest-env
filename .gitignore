@@ -3,3 +3,4 @@
 dist/
 .tox/
 /src/pytest_env/version.py
+/uv.lock

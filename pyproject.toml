@@ -1,27 +1,31 @@
 [build-system]
 build-backend = "hatchling.build"
 requires = [
+  "hatch-fancy-pypi-readme>=25.1",
   "hatch-vcs>=0.5",
   "hatchling>=1.32.4",
 ]
 
 [project]
 name = "pytest-env"
-description = "pytest plugin that allows you to add environment variables."
-readme = "README.md"
+import-names = [ "pytest_env" ]
+description = "Set environment variables for pytest sessions."
 keywords = [
   "env",
+  "environment-variables",
   "pytest",
+  "pytest-plugin",
 ]
-license.file = "LICENSE"
+license = "MIT"
+license-files = [ "LICENSE" ]
 maintainers = [
   { name = "Bernát Gábor", email = "gaborjbernat@gmail.com" },
 ]
 requires-python = ">=3.11"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
+  "Framework :: Pytest",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
@@ -32,8 +36,10 @@ classifiers = [
   "Programming Language :: Python :: 3.15",
   "Programming Language :: Python :: Implementation :: CPython",
   "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Software Development :: Testing",
 ]
 dynamic = [
+  "readme",
   "version",
 ]
 dependencies = [
@@ -52,10 +58,53 @@ test = [
   "coverage>=7.16.2",
   "pytest-mock>=3.16",
 ]
+type = [
+  { include-group = "test" },
+  "ty>=0.0.84",
+]
+build = [
+  "cython>=3",
+  "hatch-fancy-pypi-readme>=25.1",
+  "hatch-vcs>=0.5",
+  "hatchling>=1.32.4",
+  "setuptools>=80",
+]
+fix = [ "pre-commit-uv>=4.3" ]
+pkg-meta = [
+  "check-wheel-contents>=0.6.3",
+  "twine>=7",
+  "uv>=0.12.22",
+]
+release-news = [
+  "release-creator>=4.1",
+  "towncrier>=26.9",
+]
+release-notes = [
+  "release-creator>=4.1",
+]
+release-prepare = [
+  "prek>=0.5",
+  "release-creator>=4.1",
+  "towncrier>=26.9",
+]
 
 [tool.hatch]
 version.source = "vcs"
+metadata.hooks.fancy-pypi-readme.content-type = "text/markdown"
+metadata.hooks.fancy-pypi-readme.fragments = [ { path = "README.md" } ]
+metadata.hooks.fancy-pypi-readme.substitutions = [
+  { pattern = '''(?x)
+    (?<!!)\[(?P<label>[^\]]+)\]\( # Link text, excluding images
+    (?P<path>CHANGELOG\.md|CONTRIBUTING\.md) # Repository files linked from the README
+    \)
+    ''', replacement = '[\g<label>](https://github.com/pytest-dev/pytest-env/blob/main/\g<path>)' },
+]
 build.hooks.vcs.version-file = "src/pytest_env/version.py"
+
+[tool.uv]
+dependency-groups.release-news = { requires-python = ">=3.15" }
+dependency-groups.release-notes = { requires-python = ">=3.15" }
+dependency-groups.release-prepare = { requires-python = ">=3.15" }
 
 [tool.ruff]
 line-length = 120
@@ -125,3 +174,33 @@ report.fail_under = 100
 report.show_missing = true
 html.show_contexts = true
 html.skip_covered = false
+
+[tool.towncrier]
+name = "pytest-env"
+directory = "changelog.d"
+filename = "CHANGELOG.md"
+template = "release_creator.fragments:template.jinja2"
+title_format = false
+type = [
+  { directory = "feature", name = "Added", showcontent = true },
+  { directory = "change", name = "Changes", showcontent = true },
+  { directory = "bugfix", name = "Fixed", showcontent = true },
+  { directory = "doc", name = "Documentation", showcontent = true },
+  { directory = "breaking", name = "Breaking changes", showcontent = true },
+  { directory = "security", name = "Security", showcontent = true },
+  { directory = "performance", name = "Performance", showcontent = true },
+  { directory = "deprecation", name = "Deprecated", showcontent = true },
+  { directory = "removal", name = "Removed", showcontent = true },
+  { directory = "packaging", name = "Packaging", showcontent = true },
+]
+
+[tool.nab]
+mode = "universal"
+base-group = "project-runtime"
+default-groups = []
+uploaded-prior-to = "P7D"
+decision-order = "stable"
+matrix.python = ">=3.15,<3.16"
+matrix.platforms = [ "linux_x86_64" ]
+# temporary, delete after 2026-11-02
+packages.release-creator.uploaded-prior-to = 2026-10-26T18:24:46Z
