@@ -2,6 +2,24 @@
 
 <!-- towncrier release notes start -->
 
+<a name="release-1-8-2"></a>
+
+## 1.8.2 (2026-10-27)
+
+<a name="release-1-8-2-fixed"></a>
+
+### Fixed
+
+- Fix repository links in the PyPI project description ([#282](https://github.com/pytest-dev/pytest-env/pull/282)) by
+  [@gaborbernat](https://github.com/gaborbernat).
+
+<a name="release-1-8-2-packaging"></a>
+
+### Packaging
+
+- Describe the pytest plugin and its testing purpose in package metadata
+  ([#282](https://github.com/pytest-dev/pytest-env/pull/282)) by [@gaborbernat](https://github.com/gaborbernat).
+
 <a name="release-1-8-1"></a>
 
 ## 1.8.1 (2026-10-18)
