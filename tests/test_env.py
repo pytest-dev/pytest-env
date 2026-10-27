@@ -806,13 +806,16 @@ def test_native_env_files_override_ini(
     (pytester.path / config_name).write_text(native, encoding="utf-8")
     pass_python_env: Final[bool] = scenario[1]
     pythonpath_marker: Final[str] = str(pytester.path / "pythonpath_marker")
+    inherited_env: Final[dict[str, str]] = {
+        key: os.environ[key] for key in ("PYTHONPATH", "PYTHONDONTWRITEBYTECODE") if key in os.environ
+    }
     python_env: Final[dict[str, str]] = (
         {
-            "PYTHONPATH": os.pathsep.join(filter(None, (os.environ.get("PYTHONPATH"), pythonpath_marker))),
+            "PYTHONPATH": os.pathsep.join(filter(None, (inherited_env.get("PYTHONPATH"), pythonpath_marker))),
             "PYTHONDONTWRITEBYTECODE": "1",
         }
         if pass_python_env
-        else {}
+        else inherited_env
     )
     extend: Final[bool] = scenario[0]
     expected_env: Final[tuple[str | None, str | None, bool, str | None]] = (
@@ -835,12 +838,11 @@ def test_native_env_files_override_ini(
         """),
     )
     system_env: Final[dict[str, str]] = {key: os.environ[key] for key in ("SYSTEMROOT", "WINDIR") if key in os.environ}
-    mocker.patch.dict(os.environ, python_env, clear=True)
     mocker.patch.dict(
         os.environ,
         {
             **system_env,
-            **{key: os.environ[key] for key in ("PYTHONPATH", "PYTHONDONTWRITEBYTECODE") if key in os.environ},
+            **python_env,
             "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
             "PYTEST_PLUGINS": "pytest_env.plugin",
         },
