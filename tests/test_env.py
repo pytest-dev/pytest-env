@@ -117,7 +117,7 @@ if TYPE_CHECKING:
         ),
     ],
 )
-def test_env_via_pytest(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
+def test_env_via_pytest(
     pytester: pytest.Pytester,
     env_test_template: str,
     env: dict[str, str],
@@ -282,7 +282,7 @@ def test_env_via_pytest(  # ruff:ignore[too-many-arguments, too-many-positional-
         ),
     ],
 )
-def test_env_via_toml(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
+def test_env_via_toml(
     pytester: pytest.Pytester,
     env_test_template: str,
     env: dict[str, str],
@@ -480,7 +480,7 @@ def test_env_via_toml(  # ruff:ignore[too-many-arguments, too-many-positional-ar
         ),
     ],
 )
-def test_env_via_env_file(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
+def test_env_via_env_file(
     pytester: pytest.Pytester,
     env_test_template: str,
     env: dict[str, str],
@@ -626,7 +626,7 @@ def test_env_via_pyproject_toml_bad(pytester: pytest.Pytester, toml_name: str) -
         ),
     ],
 )
-def test_envfile_cli(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
+def test_envfile_cli(
     pytester: pytest.Pytester,
     env_test_template: str,
     env_file_content: str | None,
