@@ -132,6 +132,8 @@ lint.per-file-ignores."tests/**/*.py" = [
   "implicit-namespace-package",           # no implicit namespace
   "magic-value-comparison",               # Magic value used in comparison, consider replacing with a constant variable
   "subprocess-without-shell-equals-true", # `subprocess` call: check for execution of untrusted input
+  "too-many-arguments",                   # pytest injects fixtures and parameters as arguments
+  "too-many-positional-arguments",        # pytest injects fixtures and parameters as arguments
 ]
 lint.isort = { known-first-party = [
   "pytest_env",
