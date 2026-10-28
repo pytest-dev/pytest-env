@@ -35,14 +35,19 @@ advisory. Classify by who supplies the dangerous input, not by how bad the outco
 
 **In scope**
 
-- pytest-env loading a `.env` file the configuration or `--envfile` did not name, or one outside the rootdir for a
-  relative name.
+- pytest-env loading a `.env` file that neither the configuration nor `--envfile` names.
 - A variable value printed when `--pytest-env-verbose` is off.
+- TOML, INI and command-line precedence, or the skip-if-set baseline, differing from the documentation so a value the
+  user protected is overwritten.
+- A configured value creating or removing a variable other than the one its entry names.
 
 **Out of scope**
 
-- Values the configuration sets: the project's pytest configuration is trusted, like the tests it runs.
-- `{VAR}` expansion reaching other variables: it is documented, and `R:` turns it off.
+- Values the configuration sets: the project's pytest configuration is trusted, like the `conftest.py` and tests it
+  runs.
+- `{VAR}` expansion reaching other variables: it is documented, off with `R:` in INI and opt-in with `transform` in
+  TOML.
+- `.env` paths the configuration or `--envfile` chooses, including ones outside the rootdir.
 - Values printed with `--pytest-env-verbose`, which exists to print them.
 - Parsing behavior of `.env` files, which belongs to python-dotenv.
 

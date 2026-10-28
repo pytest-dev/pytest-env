@@ -6,10 +6,12 @@ SECURITY.md wins and we fix this file.
 
 ## How pytest-env works
 
-Before tests are collected, pytest-env reads `env` entries from `pytest.toml`, `pyproject.toml` or `pytest.ini`, and
-loads the `.env` files that `env_files` or `--envfile` name, resolved against the rootdir and parsed with python-dotenv.
-It sets, unsets or keeps each variable, expanding `{VAR}` references unless the entry is raw. With
-`--pytest-env-verbose` it prints each assignment, values included, in the report header.
+Before tests are collected, pytest-env reads its entries from the `[pytest_env]` table of `pytest.toml`, `.pytest.toml`
+or `pyproject.toml`, found in the pytest configuration's directory or the nearest parent with such a table, or else from
+the `env` option of the INI configuration. It loads the `.env` files that `env_files` or `--envfile` name, resolved
+against the rootdir and parsed with python-dotenv, then sets, unsets or keeps each variable, expanding `{VAR}`
+references in INI entries not marked `R:` and in TOML entries that set `transform`. With `--pytest-env-verbose` it
+prints each assignment, values included, in the report header.
 
 ```mermaid
 flowchart LR
@@ -34,7 +36,7 @@ the attacker controls.
 | Project                                                        | Language   | Where it draws the line                                                                                                                                              |
 | -------------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [direnv](https://direnv.net/man/direnv.1.html)                 | Go         | Treats `.envrc` as untrusted until `direnv allow`, because it executes it; pytest-env's `.env` files are data named by trusted configuration and are never executed. |
-| [dotenv](https://github.com/motdotla/dotenv/security/policy)   | JavaScript | Parses `.env` files as data; publishes a reporting policy only.                                                                                                      |
+| [dotenv](https://github.com/motdotla/dotenv/security/policy)   | JavaScript | Publishes only a reporting contact.                                                                                                                                  |
 | [Vitest](https://github.com/vitest-dev/vitest/security/policy) | JavaScript | Trusts the developer, the config file, plugins and every project file; only reports that need no trusted element compromised count.                                  |
 | [Jest](https://github.com/jestjs/jest/security/policy)         | JavaScript | Test runner; private reports with an escalation path, and no separate threat model.                                                                                  |
 
@@ -48,23 +50,24 @@ An attacker who controls any of these already has what pytest-env could give the
 
 ## Untrusted inputs
 
-| Input                     | Comes from                     | What pytest-env guarantees                                                                                                                |
-| ------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Variable values in output | Secrets placed in `.env` files | Not printed unless `--pytest-env-verbose` is given.                                                                                       |
-| Relative `.env` paths     | Configuration                  | Resolved against the pytest rootdir and never searched for elsewhere; a missing `--envfile` raises, a missing configured file is skipped. |
+| Input                     | Comes from                                          | What pytest-env guarantees                                                                                                         |
+| ------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Variable values in output | Secrets placed in `.env` files or the configuration | Not printed unless `--pytest-env-verbose` is given.                                                                                |
+| `.env` names              | Configuration and `--envfile`                       | Resolved against the rootdir and never searched for elsewhere; a missing `--envfile` raises, a missing configured file is skipped. |
 
 ## Threats and controls
 
-| STRIDE                 | Threat                                           | Control                                              |
-| ---------------------- | ------------------------------------------------ | ---------------------------------------------------- |
-| Information disclosure | A secret from `.env` appears in a public CI log. | Values are printed only with `--pytest-env-verbose`. |
-| Tampering              | A `.env` file from another directory is loaded.  | Only named files, resolved against the rootdir.      |
+| STRIDE                 | Threat                                           | Control                                                                                                                                                        |
+| ---------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Information disclosure | A secret from `.env` appears in a public CI log. | Values are printed only with `--pytest-env-verbose`.                                                                                                           |
+| Tampering              | A `.env` file nobody named is loaded.            | Only named files are loaded.                                                                                                                                   |
+| Tampering              | A protected variable is overwritten.             | `env_files_skip_if_set` takes its baseline before any `.env` file is applied; `D:` and `skip_if_set` entries check the environment at their place in the list. |
 
 ## Release chain
 
 Releases run on the shared [tox-dev/github-workflows](https://github.com/tox-dev/github-workflows) pipeline. A release
-App, not a person, pushes the release commit and tag; the build installs its tools hash-checked from `pylock.toml` with
-a seven-day upload cooldown; PyPI receives the files through
+App, not a person, pushes the release commit and tag; the build installs its tools from a hash-checked `pylock.toml`
+resolved with a seven-day upload cooldown by default; PyPI receives the files through
 [trusted publishing](https://docs.pypi.org/trusted-publishers/) with attestations, and the GitHub Release is immutable.
 Every workflow pins third-party actions to a commit SHA.
 
@@ -73,12 +76,20 @@ Every workflow pins third-party actions to a commit SHA.
 | Report                                                                | Verdict             | Why                           |
 | --------------------------------------------------------------------- | ------------------- | ----------------------------- |
 | A secret shows up in the report header without `--pytest-env-verbose` | Vulnerability       | Output guarantee broken.      |
-| `FOO = "{HOME}"` expands to the home directory                        | Not a vulnerability | Documented expansion.         |
+| The INI entry `FOO={HOME}` expands to the home directory              | Not a vulnerability | Documented expansion.         |
 | A malicious `pytest.ini` sets `LD_PRELOAD`                            | Not a vulnerability | The configuration is trusted. |
+
+## Severity
+
+- **High:** a secret value printed without `--pytest-env-verbose`.
+- **Medium:** an unnamed `.env` file loaded, or a protected variable overwritten against the documented precedence.
+- **Low:** a crash or confusing error on malformed configuration.
 
 ## Accepted risks
 
 - `--pytest-env-verbose` prints values, secrets included; do not enable it with secrets in public logs.
+- The TOML search walks up parent directories without checking who owns them; do not run pytest below a directory other
+  users can write.
 
 ## Keeping this current
 
