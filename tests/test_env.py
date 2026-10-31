@@ -343,10 +343,8 @@ def test_env_via_toml(
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
-    pytest_args = ("-c", str(pytester.path / "pytest.ini")) if ini else ()
-
     with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest(*pytest_args, str(test_dir))
+        result = pytester.runpytest(*(("-c", str(pytester.path / "pytest.ini")) if ini else ()), str(test_dir))
 
     result.assert_outcomes(passed=1)
 
