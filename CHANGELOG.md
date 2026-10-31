@@ -2,6 +2,18 @@
 
 <!-- towncrier release notes start -->
 
+<a name="release-1-8-4"></a>
+
+## 1.8.4 (2026-10-31)
+
+<a name="release-1-8-4-fixed"></a>
+
+### Fixed
+
+- Honor an empty native TOML environment section over INI `env` settings
+  ([#294](https://github.com/pytest-dev/pytest-env/pull/294)) by [@Zhuyuyangyy](https://github.com/Zhuyuyangyy) and
+  [@gaborbernat](https://github.com/gaborbernat).
+
 <a name="release-1-8-3"></a>
 
 ## 1.8.3 (2026-10-27)
