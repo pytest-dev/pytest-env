@@ -228,6 +228,33 @@ def test_env_via_pytest(
         ),
         pytest.param(
             {},
+            "[tool.pytest_env]\n",
+            "",
+            "[pytest]\nenv = FROM_INI=unexpected",
+            {"FROM_INI": None},
+            None,
+            id="empty pyproject native over ini",
+        ),
+        pytest.param(
+            {},
+            "",
+            "[pytest_env]\n",
+            "[pytest]\nenv = FROM_INI=unexpected",
+            {"FROM_INI": None},
+            "pytest.toml",
+            id="empty pytest toml native over ini",
+        ),
+        pytest.param(
+            {},
+            "",
+            "[pytest_env]\n",
+            "[pytest]\nenv = FROM_INI=unexpected",
+            {"FROM_INI": None},
+            ".pytest.toml",
+            id="empty hidden pytest toml native over ini",
+        ),
+        pytest.param(
+            {},
             '[tool.pytest_env]\nMAGIC = {value = "toml", "transform"= true, "skip_if_set" = true}',
             "",
             "",
@@ -316,9 +343,8 @@ def test_env_via_toml(
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
-
     with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest(str(test_dir))
+        result = pytester.runpytest(*(("-c", str(pytester.path / "pytest.ini")) if ini else ()), str(test_dir))
 
     result.assert_outcomes(passed=1)
 
