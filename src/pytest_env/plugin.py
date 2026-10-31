@@ -232,9 +232,8 @@ def _load_values(early_config: pytest.Config) -> Iterator[Entry]:
     """Load env entries from config, preferring TOML over INI."""
     if toml_config := _find_toml_config(early_config):
         _, entries, _ = _load_toml_config(toml_config)
-        if entries:
-            yield from entries
-            return
+        yield from entries
+        return
 
     for line in early_config.getini("env"):
         # INI lines e.g. D:R:NAME=VAL has two flags (R and D), NAME key, and VAL value
