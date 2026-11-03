@@ -4,6 +4,8 @@
 [![Supported Python versions](https://img.shields.io/pypi/pyversions/pytest-env.svg)](https://pypi.org/project/pytest-env/)
 [![check](https://github.com/pytest-dev/pytest-env/actions/workflows/check.yaml/badge.svg)](https://github.com/pytest-dev/pytest-env/actions/workflows/check.yaml)
 [![Downloads](https://static.pepy.tech/badge/pytest-env/month)](https://pepy.tech/project/pytest-env)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/pytest-dev/pytest-env/badge)](https://scorecard.dev/viewer/?uri=github.com/pytest-dev/pytest-env)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16274/badge)](https://www.bestpractices.dev/projects/16274)
 
 A `pytest` plugin that sets environment variables from `pyproject.toml`, `pytest.toml`, `.pytest.toml`, or `pytest.ini`
 configuration files. It can also load variables from `.env` files.
