@@ -2,6 +2,10 @@
 
 <!-- towncrier release notes start -->
 
+<a name="release-1-8-5"></a>
+
+## 1.8.5 (2026-11-04)
+
 <a name="release-1-8-4"></a>
 
 ## 1.8.4 (2026-10-31)
