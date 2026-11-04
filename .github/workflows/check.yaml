@@ -16,45 +16,22 @@ permissions:
 jobs:
   test:
     name: 🧪 Test
-    runs-on: ubuntu-26.04
-    strategy:
-      fail-fast: false
-      matrix:
-        env:
-          - "3.15"
-          - "3.15t"
-          - "3.14"
-          - "3.13"
-          - "3.12"
-          - "3.11"
-          - type
-          - dev
-          - pkg_meta
-    steps:
-      - name: 📥 Check out code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: 🐍 Install uv
-        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-        with:
-          python-version: "3.15"
-          enable-cache: false
-          cache-dependency-glob: "pyproject.toml"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: 📦 Install tox
-        run: uv tool install --python-preference only-managed --python 3.15 tox --with tox-uv
-      - name: 🐍 Install Python
-        if: startsWith(matrix.env, '3.') && matrix.env != '3.15'
-        run: uv python install --python-preference only-managed ${{ matrix.env }}
-      - name: 📦 Set up test suite
-        run: tox run -vv --notest --skip-missing-interpreters false -e ${{ matrix.env }}
-      - name: 🧪 Run test suite
-        run: tox run --skip-pkg-install -e ${{ matrix.env }}
-        env:
-          PYTEST_ADDOPTS: "-vv --durations=20"
-          DIFF_AGAINST: HEAD
+    uses: tox-dev/github-workflows/.github/workflows/check.yaml@bceb5c005e19823dc8835f536f53f172ae223927 # 6.5.0
+    permissions:
+      contents: read
+    with:
+      include: |
+        [
+          {"env": "3.15"},
+          {"env": "3.15t", "python": "3.15t"},
+          {"env": "3.14", "python": "3.14"},
+          {"env": "3.13", "python": "3.13"},
+          {"env": "3.12", "python": "3.12"},
+          {"env": "3.11", "python": "3.11"},
+          {"env": "type"},
+          {"env": "dev"},
+          {"env": "pkg_meta"}
+        ]
   gate:
     name: 🚦 Required checks pass
     if: ${{ !cancelled() }} # codespell:ignore cancelled
@@ -62,6 +39,6 @@ jobs:
     runs-on: ubuntu-26.04
     steps:
       - name: 🚦 Require all needed jobs to pass
-        env:
-          NEEDS_JSON: ${{ toJSON(needs) }}
-        run: jq -e 'all(to_entries[]; .value.result == "success")' <<<"$NEEDS_JSON"
+        uses: tox-dev/github-workflows/required-checks@bceb5c005e19823dc8835f536f53f172ae223927 # 6.5.0
+        with:
+          needs: ${{ toJSON(needs) }}
