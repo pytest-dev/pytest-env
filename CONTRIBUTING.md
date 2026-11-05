@@ -25,3 +25,9 @@ Respect an empty native `env_files` list over INI fallback.
 Apply the `skip news` label to a PR that changes only maintenance work and has no user-facing effect. The news check
 runs again if the label changes. Maintenance bot PRs receive the label automatically unless they provide a fragment. Bot
 accounts are not listed as authors of release notes.
+
+## Tests
+
+Add a test for every new feature and bug fix: a fix needs a test that fails without it. A change without a test needs a
+reason in the pull request description. Run the suite with `tox run -e 3.15`, which fails below 100% coverage. Pass
+pytest arguments after `--` to run a subset, for example `tox run -e 3.15 -- tests/test_env.py -k env_files`.
