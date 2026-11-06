@@ -32,10 +32,18 @@ jobs:
           {"env": "dev"},
           {"env": "pkg_meta"}
         ]
+  release:
+    name: 🏷️ Release dry run
+    uses: $/.github/workflows/prepare-release.yaml
+    permissions:
+      contents: read
+      pull-requests: read
+    with:
+      dry-run: true
   gate:
     name: 🚦 Required checks pass
     if: ${{ !cancelled() }} # codespell:ignore cancelled
-    needs: [test]
+    needs: [test, release]
     runs-on: ubuntu-26.04
     steps:
       - name: 🚦 Require all needed jobs to pass
