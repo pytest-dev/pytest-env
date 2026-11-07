@@ -776,62 +776,82 @@ def child(pytester: pytest.Pytester, mocker: MockerFixture) -> Path:
 
 
 @pytest.mark.parametrize(
-    "config_name",
+    ("files", "expected_ini"),
     [
-        pytest.param("pytest.toml", id="pytest-toml"),
-        pytest.param(".pytest.toml", id="hidden-pytest-toml"),
-        pytest.param("pyproject.toml", id="pyproject-toml"),
+        pytest.param(
+            {"pytest.toml": '[pytest_env]\n\n[pytest]\nenv_files = ["fallback.env"]\n'},
+            "from_ini",
+            id="pytest-toml-omitted",
+        ),
+        pytest.param(
+            {"pytest.toml": '[pytest_env]\nenv_files = []\n\n[pytest]\nenv_files = ["fallback.env"]\n'},
+            None,
+            id="pytest-toml-empty",
+        ),
+        pytest.param(
+            {".pytest.toml": '[pytest_env]\n\n[pytest]\nenv_files = ["fallback.env"]\n'},
+            "from_ini",
+            id="hidden-pytest-toml-omitted",
+        ),
+        pytest.param(
+            {".pytest.toml": '[pytest_env]\nenv_files = []\n\n[pytest]\nenv_files = ["fallback.env"]\n'},
+            None,
+            id="hidden-pytest-toml-empty",
+        ),
+        pytest.param(
+            {"pyproject.toml": "[tool.pytest_env]\n", "tox.ini": "[pytest]\nenv_files = fallback.env\n"},
+            "from_ini",
+            id="pyproject-toml-omitted",
+        ),
+        pytest.param(
+            {
+                "pyproject.toml": "[tool.pytest_env]\nenv_files = []\n",
+                "tox.ini": "[pytest]\nenv_files = fallback.env\n",
+            },
+            None,
+            id="pyproject-toml-empty",
+        ),
     ],
 )
 @pytest.mark.parametrize(
-    "empty_env_files",
-    [pytest.param(False, id="omitted"), pytest.param(True, id="empty")],
-)
-@pytest.mark.parametrize(
-    "scenario",
+    ("cli_args", "expected_cli", "python_env", "expected_python"),
     [
-        pytest.param((False, False), id="config-only-unset"),
-        pytest.param((False, True), id="config-only-set"),
-        pytest.param((True, False), id="cli-extend-unset"),
-        pytest.param((True, True), id="cli-extend-set"),
+        pytest.param((), None, {}, (False, None), id="config-only-unset"),
+        pytest.param(
+            (),
+            None,
+            {"PYTHONPATH": "pythonpath_marker", "PYTHONDONTWRITEBYTECODE": "1"},
+            (True, "1"),
+            id="config-only-set",
+        ),
+        pytest.param(("--envfile", "+cli.env"), "from_cli", {}, (False, None), id="cli-extend-unset"),
+        pytest.param(
+            ("--envfile", "+cli.env"),
+            "from_cli",
+            {"PYTHONPATH": "pythonpath_marker", "PYTHONDONTWRITEBYTECODE": "1"},
+            (True, "1"),
+            id="cli-extend-set",
+        ),
     ],
 )
 def test_native_env_files_override_ini(
     pytester: pytest.Pytester,
     mocker: MockerFixture,
-    config_name: str,
-    empty_env_files: bool,
-    scenario: tuple[bool, bool],
+    files: dict[str, str],
+    expected_ini: str | None,
+    cli_args: tuple[str, ...],
+    expected_cli: str | None,
+    python_env: dict[str, str],
+    expected_python: tuple[bool, str | None],
 ) -> None:
     (pytester.path / "fallback.env").write_text("INHERITED=from_ini\n", encoding="utf-8")
     (pytester.path / "cli.env").write_text("FROM_CLI=from_cli\n", encoding="utf-8")
-    native = f"[{'tool.pytest_env' if config_name == 'pyproject.toml' else 'pytest_env'}]\n"
-    if empty_env_files:
-        native += "env_files = []\n"
-    if config_name == "pyproject.toml":
-        pytester.makeini("[pytest]\nenv_files = fallback.env\n")
-    else:
-        native += '\n[pytest]\nenv_files = ["fallback.env"]\n'
-    (pytester.path / config_name).write_text(native, encoding="utf-8")
-    pass_python_env: Final[bool] = scenario[1]
-    pythonpath_marker: Final[str] = str(pytester.path / "pythonpath_marker")
-    inherited_env: Final[dict[str, str]] = {
-        key: os.environ[key] for key in ("PYTHONPATH", "PYTHONDONTWRITEBYTECODE") if key in os.environ
-    }
-    python_env: Final[dict[str, str]] = (
-        {
-            "PYTHONPATH": os.pathsep.join(filter(None, (inherited_env.get("PYTHONPATH"), pythonpath_marker))),
-            "PYTHONDONTWRITEBYTECODE": "1",
-        }
-        if pass_python_env
-        else inherited_env
-    )
-    extend: Final[bool] = scenario[0]
+    for name, content in files.items():
+        (pytester.path / name).write_text(content, encoding="utf-8")
     expected_env: Final[tuple[str | None, str | None, bool, str | None]] = (
-        None if empty_env_files else "from_ini",
-        "from_cli" if extend else None,
-        pass_python_env,
-        python_env.get("PYTHONDONTWRITEBYTECODE"),
+        expected_ini,
+        expected_cli,
+        *expected_python,
     )
     pytester.makepyfile(
         test_env=dedent(f"""\
@@ -841,7 +861,7 @@ def test_native_env_files_override_ini(
                 assert (
                     os.environ.get("INHERITED"),
                     os.environ.get("FROM_CLI"),
-                    {pythonpath_marker!r} in os.environ["PYTHONPATH"].split(os.pathsep),
+                    "pythonpath_marker" in os.environ.get("PYTHONPATH", "").split(os.pathsep),
                     os.environ.get("PYTHONDONTWRITEBYTECODE"),
                 ) == {expected_env!r}
         """),
@@ -857,7 +877,7 @@ def test_native_env_files_override_ini(
         },
         clear=True,
     )
-    pytester.runpytest_subprocess(*(["--envfile", "+cli.env"] if extend else [])).assert_outcomes(passed=1)
+    pytester.runpytest_subprocess(*cli_args).assert_outcomes(passed=1)
 
 
 @pytest.mark.parametrize(
