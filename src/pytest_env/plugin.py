@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
     from pathlib import Path
 
-_ENV_ACTIONS_KEY = pytest.StashKey[list[str]]()
+_ENV_ACTIONS_KEY: Final[pytest.StashKey[list[str]]] = pytest.StashKey[list[str]]()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -46,9 +46,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_load_initial_conftests(
-    args: list[str],  # ruff:ignore[unused-function-argument]
+    args: list[str],  # ruff:ignore[unused-function-argument] the hookspec passes it
     early_config: pytest.Config,
-    parser: pytest.Parser,  # ruff:ignore[unused-function-argument]
+    parser: pytest.Parser,  # ruff:ignore[unused-function-argument] the hookspec passes it
 ) -> None:
     """Load environment variables from configuration files."""
     verbose = getattr(early_config.known_args_namespace, "pytest_env_verbose", False)
@@ -221,7 +221,7 @@ def _config_source(early_config: pytest.Config) -> str:
             return str(toml_path)
     if early_config.inipath:
         return str(early_config.inipath)
-    return "config"  # pragma: no cover
+    return "config"  # pragma: no cover no config file means no entries to name
 
 
 def _load_values(early_config: pytest.Config) -> Iterator[Entry]:

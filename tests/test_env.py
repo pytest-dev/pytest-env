@@ -9,7 +9,7 @@ from unittest import mock
 
 import pytest
 
-from pytest_env.plugin import _load_toml_config  # ruff:ignore[import-private-name]
+from pytest_env.plugin import _load_toml_config  # ruff:ignore[import-private-name] the test drives the loader
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
