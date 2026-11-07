@@ -5,7 +5,6 @@ import re
 from pathlib import Path
 from textwrap import dedent
 from typing import TYPE_CHECKING, Final
-from unittest import mock
 
 import pytest
 
@@ -124,6 +123,7 @@ def test_env_via_pytest(
     ini: str,
     expected_env: dict[str, str],
     request: pytest.FixtureRequest,
+    mocker: MockerFixture,
 ) -> None:
     test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
     (pytester.path / f"test_{test_name}.py").write_text(env_test_template, encoding="utf-8")
@@ -136,8 +136,8 @@ def test_env_via_pytest(
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
 
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest()
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest()
 
     result.assert_outcomes(passed=1)
 
@@ -319,6 +319,7 @@ def test_env_via_toml(
     expected_env: dict[str, str],
     pytest_toml_name: str | None,
     request: pytest.FixtureRequest,
+    mocker: MockerFixture,
 ) -> None:
     test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
     if pyproject_toml:
@@ -343,8 +344,8 @@ def test_env_via_toml(
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest(*(("-c", str(pytester.path / "pytest.ini")) if ini else ()), str(test_dir))
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest(*(("-c", str(pytester.path / "pytest.ini")) if ini else ()), str(test_dir))
 
     result.assert_outcomes(passed=1)
 
@@ -515,6 +516,7 @@ def test_env_via_env_file(
     expected_env: dict[str, str | None],
     config_type: str,
     request: pytest.FixtureRequest,
+    mocker: MockerFixture,
 ) -> None:
     test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
     (pytester.path / f"test_{test_name}.py").write_text(env_test_template, encoding="utf-8")
@@ -530,8 +532,8 @@ def test_env_via_env_file(
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
 
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest()
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest()
 
     result.assert_outcomes(passed=1)
 
@@ -560,6 +562,7 @@ def test_conftest_import_uses_env(
     pytester: pytest.Pytester,
     config_content: str,
     config_file: str,
+    mocker: MockerFixture,
 ) -> None:
     (pytester.path / config_file).write_text(config_content, encoding="utf-8")
     (pytester.path / "app_config.py").write_text(
@@ -581,8 +584,8 @@ def test_conftest_import_uses_env(
     )
 
     new_env = {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"}
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest()
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest()
 
     result.assert_outcomes(passed=1)
 
@@ -660,6 +663,7 @@ def test_envfile_cli(
     config: str | None,
     cli_arg: str,
     expected_env: dict[str, str],
+    mocker: MockerFixture,
 ) -> None:
     (pytester.path / "test_cli.py").write_text(env_test_template, encoding="utf-8")
 
@@ -675,13 +679,13 @@ def test_envfile_cli(
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
 
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest("--envfile", cli_arg)
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest("--envfile", cli_arg)
 
     result.assert_outcomes(passed=1)
 
 
-def test_envfile_cli_skip_if_set(pytester: pytest.Pytester, env_test_template: str) -> None:
+def test_envfile_cli_skip_if_set(pytester: pytest.Pytester, env_test_template: str, mocker: MockerFixture) -> None:
     (pytester.path / "test_cli_skip.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / "cli.env").write_text("MAGIC=from_cli", encoding="utf-8")
     (pytester.path / "pyproject.toml").write_text(
@@ -700,8 +704,8 @@ def test_envfile_cli_skip_if_set(pytester: pytest.Pytester, env_test_template: s
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
 
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest("--envfile", "cli.env")
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest("--envfile", "cli.env")
 
     result.assert_outcomes(passed=1)
 
@@ -713,7 +717,7 @@ def test_envfile_cli_skip_if_set(pytester: pytest.Pytester, env_test_template: s
         pytest.param("+nonexistent.env", id="missing file extend"),
     ],
 )
-def test_envfile_cli_missing_file(pytester: pytest.Pytester, cli_arg: str) -> None:
+def test_envfile_cli_missing_file(pytester: pytest.Pytester, cli_arg: str, mocker: MockerFixture) -> None:
     pytester.makepyfile(test_it="def test_it() -> None:\n    pass")
 
     new_env = {
@@ -721,8 +725,8 @@ def test_envfile_cli_missing_file(pytester: pytest.Pytester, cli_arg: str) -> No
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
 
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest("--envfile", cli_arg)
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest("--envfile", cli_arg)
 
     assert result.ret != 0
     error_file = cli_arg.lstrip("+")
@@ -888,7 +892,9 @@ def test_native_env_files_override_ini(
         pytest.param("pytest_env_case", id="different-case"),
     ],
 )
-def test_env_files_skip_if_set_respects_platform_case(pytester: pytest.Pytester, file_key: str) -> None:
+def test_env_files_skip_if_set_respects_platform_case(
+    pytester: pytest.Pytester, file_key: str, mocker: MockerFixture
+) -> None:
     expected: Final[str] = "from_file" if os.name != "nt" and file_key == "pytest_env_case" else "original"
     (pytester.path / ".env").write_text(f"{file_key}=from_file\n", encoding="utf-8")
     (pytester.path / "pytest.ini").write_text(
@@ -900,7 +906,7 @@ def test_env_files_skip_if_set_respects_platform_case(pytester: pytest.Pytester,
             '    assert os.environ["PYTEST_ENV_CASE"] == "original"\n'
         )
     )
-    with mock.patch.dict(
+    mocker.patch.dict(
         os.environ,
         {
             "PYTEST_ENV_CASE": "original",
@@ -908,8 +914,8 @@ def test_env_files_skip_if_set_respects_platform_case(pytester: pytest.Pytester,
             "PYTEST_PLUGINS": "pytest_env.plugin",
         },
         clear=True,
-    ):
-        result: Final[pytest.RunResult] = pytester.runpytest("--pytest-env-verbose")
+    )
+    result: Final[pytest.RunResult] = pytester.runpytest("--pytest-env-verbose")
 
     result.assert_outcomes(passed=1)
     action: Final[str] = "SET" if expected == "from_file" else "SKIP"
