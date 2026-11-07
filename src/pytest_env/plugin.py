@@ -256,3 +256,11 @@ def pytest_report_header(config: pytest.Config) -> list[str] | None:
     if _ENV_ACTIONS_KEY in config.stash:
         return config.stash[_ENV_ACTIONS_KEY]
     return None
+
+
+__all__ = [
+    "Entry",
+    "pytest_addoption",
+    "pytest_load_initial_conftests",
+    "pytest_report_header",
+]
