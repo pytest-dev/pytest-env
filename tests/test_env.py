@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import re
-from pathlib import Path
 from textwrap import dedent
 from typing import TYPE_CHECKING, Final
 
@@ -11,6 +10,8 @@ import pytest
 from pytest_env.plugin import _load_toml_config  # ruff:ignore[import-private-name] the test drives the loader
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from pytest_mock import MockerFixture
 
 
@@ -137,174 +138,154 @@ def test_env_via_pytest(
     }
 
     mocker.patch.dict(os.environ, new_env, clear=True)
-    result = pytester.runpytest()
-
-    result.assert_outcomes(passed=1)
+    pytester.runpytest().assert_outcomes(passed=1)
 
 
 @pytest.mark.parametrize(
-    ("env", "pyproject_toml", "pytest_toml", "ini", "expected_env", "pytest_toml_name"),
+    ("env", "files", "expected_env", "test_dir"),
     [
         pytest.param(
             {},
-            '[tool.pytest.ini_options]\nenv = ["MAGIC=toml", "MAGIC_2=toml2"]',
-            "",
-            "[pytest]\nenv = MAGIC=ini\n MAGIC_2=ini2",
+            {
+                "pyproject.toml": '[tool.pytest.ini_options]\nenv = ["MAGIC=toml", "MAGIC_2=toml2"]',
+                "pytest.ini": "[pytest]\nenv = MAGIC=ini\n MAGIC_2=ini2",
+            },
             {"MAGIC": "ini", "MAGIC_2": "ini2"},
-            None,
+            ".",
             id="ini over pyproject toml ini_options",
         ),
         pytest.param(
             {},
-            '[tool.pytest.ini_options]\nenv = ["MAGIC=toml", "MAGIC_2=toml2"]',
-            "",
-            "",
+            {"pyproject.toml": '[tool.pytest.ini_options]\nenv = ["MAGIC=toml", "MAGIC_2=toml2"]'},
             {"MAGIC": "toml", "MAGIC_2": "toml2"},
-            None,
+            ".",
             id="pyproject toml via ini_options",
         ),
         pytest.param(
             {},
-            '[tool.pytest]\nenv = ["MAGIC=toml", "MAGIC_2=toml2"]',
-            "",
-            "",
+            {"pyproject.toml": '[tool.pytest]\nenv = ["MAGIC=toml", "MAGIC_2=toml2"]'},
             {"MAGIC": "toml", "MAGIC_2": "toml2"},
-            None,
+            ".",
             id="pyproject toml via tool.pytest",
         ),
         pytest.param(
             {},
-            '[tool.pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"',
-            "",
-            "",
+            {"pyproject.toml": '[tool.pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"'},
             {"MAGIC": "1", "MAGIC_2": "toml2"},
-            None,
+            ".",
             id="pyproject toml native",
         ),
         pytest.param(
             {},
-            "",
-            '[pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"',
-            "",
+            {"pytest.toml": '[pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"'},
             {"MAGIC": "1", "MAGIC_2": "toml2"},
-            "pytest.toml",
+            ".",
             id="pytest toml",
         ),
         pytest.param(
             {},
-            "",
-            '[pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"',
-            "",
+            {".pytest.toml": '[pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"'},
             {"MAGIC": "1", "MAGIC_2": "toml2"},
-            ".pytest.toml",
+            ".",
             id="hidden pytest toml",
         ),
         pytest.param(
             {},
-            '[tool.pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"',
-            "",
-            "[pytest]\nenv = MAGIC=ini\n MAGIC_2=ini2",
+            {
+                "pyproject.toml": '[tool.pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"',
+                "pytest.ini": "[pytest]\nenv = MAGIC=ini\n MAGIC_2=ini2",
+            },
             {"MAGIC": "1", "MAGIC_2": "toml2"},
-            None,
+            ".",
             id="pyproject toml native over ini",
         ),
         pytest.param(
             {},
-            "",
-            '[pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"',
-            "[pytest]\nenv = MAGIC=ini\n MAGIC_2=ini2",
+            {
+                "pytest.toml": '[pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"',
+                "pytest.ini": "[pytest]\nenv = MAGIC=ini\n MAGIC_2=ini2",
+            },
             {"MAGIC": "1", "MAGIC_2": "toml2"},
-            "pytest.toml",
+            ".",
             id="pytest toml native over ini",
         ),
         pytest.param(
             {},
-            "",
-            '[pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"',
-            "[pytest]\nenv = MAGIC=ini\n MAGIC_2=ini2",
+            {
+                ".pytest.toml": '[pytest_env]\nMAGIC = 1\nMAGIC_2 = "toml2"',
+                "pytest.ini": "[pytest]\nenv = MAGIC=ini\n MAGIC_2=ini2",
+            },
             {"MAGIC": "1", "MAGIC_2": "toml2"},
-            ".pytest.toml",
+            ".",
             id="hidden pytest toml native over ini",
         ),
         pytest.param(
             {},
-            "[tool.pytest_env]\n",
-            "",
-            "[pytest]\nenv = FROM_INI=unexpected",
+            {"pyproject.toml": "[tool.pytest_env]\n", "pytest.ini": "[pytest]\nenv = FROM_INI=unexpected"},
             {"FROM_INI": None},
-            None,
+            ".",
             id="empty pyproject native over ini",
         ),
         pytest.param(
             {},
-            "",
-            "[pytest_env]\n",
-            "[pytest]\nenv = FROM_INI=unexpected",
+            {"pytest.toml": "[pytest_env]\n", "pytest.ini": "[pytest]\nenv = FROM_INI=unexpected"},
             {"FROM_INI": None},
-            "pytest.toml",
+            ".",
             id="empty pytest toml native over ini",
         ),
         pytest.param(
             {},
-            "",
-            "[pytest_env]\n",
-            "[pytest]\nenv = FROM_INI=unexpected",
+            {".pytest.toml": "[pytest_env]\n", "pytest.ini": "[pytest]\nenv = FROM_INI=unexpected"},
             {"FROM_INI": None},
-            ".pytest.toml",
+            ".",
             id="empty hidden pytest toml native over ini",
         ),
         pytest.param(
             {},
-            '[tool.pytest_env]\nMAGIC = {value = "toml", "transform"= true, "skip_if_set" = true}',
-            "",
-            "",
+            {"pyproject.toml": '[tool.pytest_env]\nMAGIC = {value = "toml", "transform"= true, "skip_if_set" = true}'},
             {"MAGIC": "toml"},
-            None,
+            ".",
             id="pyproject toml inline table",
         ),
         pytest.param(
             {},
-            "",
-            '[pytest_env]\nMAGIC = {value = "toml", "transform"= true, "skip_if_set" = true}',
-            "",
+            {"pytest.toml": '[pytest_env]\nMAGIC = {value = "toml", "transform"= true, "skip_if_set" = true}'},
             {"MAGIC": "toml"},
-            "pytest.toml",
+            ".",
             id="pytest toml inline table",
         ),
         pytest.param(
             {},
-            '[tool.pytest_env]\nMAGIC = 1\nMAGIC_2 = "pyproject"',
-            '[pytest_env]\nMAGIC = 1\nMAGIC_2 = "pytest"',
-            "",
+            {
+                "pyproject.toml": '[tool.pytest_env]\nMAGIC = 1\nMAGIC_2 = "pyproject"',
+                "pytest.toml": '[pytest_env]\nMAGIC = 1\nMAGIC_2 = "pytest"',
+            },
             {"MAGIC": "1", "MAGIC_2": "pytest"},
-            "pytest.toml",
+            ".",
             id="pytest toml over pyproject toml",
         ),
         pytest.param(
             {"MAGIC": "alpha"},
-            "[tool.pytest_env]\nMAGIC = {unset = true}",
-            "",
-            "",
+            {"pyproject.toml": "[tool.pytest_env]\nMAGIC = {unset = true}"},
             {"MAGIC": None},
-            None,
+            ".",
             id="pyproject toml unset",
         ),
         pytest.param(
             {},
-            "[tool.pytest_env]\nMAGIC = {unset = true}",
-            "",
-            "",
+            {"pyproject.toml": "[tool.pytest_env]\nMAGIC = {unset = true}"},
             {"MAGIC": None},
-            None,
+            ".",
             id="pyproject toml unset non-existing",
         ),
         pytest.param(
             {},
-            '[tool.pytest_env]\nMAGIC = "parent"',
-            '[pytest_env]\nMAGIC = "child"',
-            "",
+            {
+                "pyproject.toml": '[tool.pytest_env]\nMAGIC = "parent"',
+                "sub/pytest.toml": '[pytest_env]\nMAGIC = "child"',
+            },
             {"MAGIC": "child"},
-            "sub/pytest.toml",
+            "sub",
             id="subdir pytest toml over parent pyproject toml",
         ),
     ],
@@ -313,30 +294,17 @@ def test_env_via_toml(
     pytester: pytest.Pytester,
     env_test_template: str,
     env: dict[str, str],
-    pyproject_toml: str,
-    pytest_toml: str,
-    ini: str,
+    files: dict[str, str],
     expected_env: dict[str, str],
-    pytest_toml_name: str | None,
+    test_dir: str,
     request: pytest.FixtureRequest,
     mocker: MockerFixture,
 ) -> None:
     test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
-    if pyproject_toml:
-        (pytester.path / "pyproject.toml").write_text(pyproject_toml, encoding="utf-8")
-    if pytest_toml and pytest_toml_name:
-        toml_path = pytester.path / pytest_toml_name
-        toml_path.parent.mkdir(parents=True, exist_ok=True)
-        toml_path.write_text(pytest_toml, encoding="utf-8")
-
-    if pytest_toml_name and "/" in pytest_toml_name:
-        test_dir = pytester.path / Path(pytest_toml_name).parent
-    else:
-        test_dir = pytester.path
-        if ini:
-            (pytester.path / "pytest.ini").write_text(ini, encoding="utf-8")
-
-    (test_dir / f"test_{test_name}.py").write_text(env_test_template, encoding="utf-8")
+    for name, content in files.items():
+        (pytester.path / name).parent.mkdir(parents=True, exist_ok=True)
+        (pytester.path / name).write_text(content, encoding="utf-8")
+    (pytester.path / test_dir / f"test_{test_name}.py").write_text(env_test_template, encoding="utf-8")
 
     new_env = {
         **env,
@@ -345,9 +313,7 @@ def test_env_via_toml(
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
     mocker.patch.dict(os.environ, new_env, clear=True)
-    result = pytester.runpytest(*(("-c", str(pytester.path / "pytest.ini")) if ini else ()), str(test_dir))
-
-    result.assert_outcomes(passed=1)
+    pytester.runpytest(str(pytester.path / test_dir)).assert_outcomes(passed=1)
 
 
 @pytest.mark.parametrize(
@@ -520,8 +486,7 @@ def test_env_via_env_file(
 ) -> None:
     test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
     (pytester.path / f"test_{test_name}.py").write_text(env_test_template, encoding="utf-8")
-    if env_file_content:
-        (pytester.path / ".env").write_text(env_file_content, encoding="utf-8")
+    (pytester.path / ".env").write_text(env_file_content, encoding="utf-8")
     config_file_names = {"pyproject": "pyproject.toml", "pytest.toml": "pytest.toml", "ini": "pytest.ini"}
     (pytester.path / config_file_names[config_type]).write_text(config, encoding="utf-8")
 
@@ -533,9 +498,7 @@ def test_env_via_env_file(
     }
 
     mocker.patch.dict(os.environ, new_env, clear=True)
-    result = pytester.runpytest()
-
-    result.assert_outcomes(passed=1)
+    pytester.runpytest().assert_outcomes(passed=1)
 
 
 @pytest.mark.parametrize(
@@ -585,9 +548,7 @@ def test_conftest_import_uses_env(
 
     new_env = {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"}
     mocker.patch.dict(os.environ, new_env, clear=True)
-    result = pytester.runpytest()
-
-    result.assert_outcomes(passed=1)
+    pytester.runpytest().assert_outcomes(passed=1)
 
 
 def test_env_files_from_toml_bad_toml(tmp_path: Path) -> None:
@@ -597,58 +558,66 @@ def test_env_files_from_toml_bad_toml(tmp_path: Path) -> None:
         _load_toml_config(toml_file)
 
 
-@pytest.mark.parametrize("toml_name", ["pytest.toml", ".pytest.toml", "pyproject.toml"])
+@pytest.mark.parametrize(
+    "toml_name",
+    [
+        pytest.param("pytest.toml", id="pytest-toml"),
+        pytest.param(".pytest.toml", id="hidden-pytest-toml"),
+        pytest.param("pyproject.toml", id="pyproject-toml"),
+    ],
+)
 def test_env_via_pyproject_toml_bad(pytester: pytest.Pytester, toml_name: str) -> None:
     toml_file = pytester.path / toml_name
     toml_file.write_text("bad toml", encoding="utf-8")
 
     result = pytester.runpytest()
-    assert result.ret == 4
-    assert result.errlines == [
-        f"ERROR: {toml_file}: Expected '=' after a key in a key/value pair (at line 1, column 5)",
-        "",
-    ]
+    assert (result.ret, result.errlines) == (
+        4,
+        [f"ERROR: {toml_file}: Expected '=' after a key in a key/value pair (at line 1, column 5)", ""],
+    )
 
 
 @pytest.mark.parametrize(
-    ("env_file_content", "cli_file_content", "config", "cli_arg", "expected_env"),
+    ("files", "cli_arg", "expected_env"),
     [
         pytest.param(
-            "MAGIC=from_env",
-            "MAGIC=from_cli",
-            '[tool.pytest_env]\nenv_files = [".env"]',
+            {
+                "cli.env": "MAGIC=from_cli",
+                ".env": "MAGIC=from_env",
+                "pyproject.toml": '[tool.pytest_env]\nenv_files = [".env"]',
+            },
             "cli.env",
             {"MAGIC": "from_cli"},
             id="override mode",
         ),
         pytest.param(
-            "MAGIC=from_env\nEXTRA=config",
-            "MAGIC=from_cli",
-            '[tool.pytest_env]\nenv_files = [".env"]',
+            {
+                "cli.env": "MAGIC=from_cli",
+                ".env": "MAGIC=from_env\nEXTRA=config",
+                "pyproject.toml": '[tool.pytest_env]\nenv_files = [".env"]',
+            },
             "+cli.env",
             {"MAGIC": "from_cli", "EXTRA": "config"},
             id="extend mode",
         ),
         pytest.param(
-            None,
-            "MAGIC=from_cli",
-            None,
+            {"cli.env": "MAGIC=from_cli"},
             "cli.env",
             {"MAGIC": "from_cli"},
             id="no config files override",
         ),
         pytest.param(
-            None,
-            "MAGIC=from_cli",
-            None,
+            {"cli.env": "MAGIC=from_cli"},
             "+cli.env",
             {"MAGIC": "from_cli"},
             id="no config files extend",
         ),
         pytest.param(
-            "MAGIC=from_env",
-            "EXTRA=from_cli",
-            '[tool.pytest_env]\nenv_files = [".env", "missing.env"]',
+            {
+                "cli.env": "EXTRA=from_cli",
+                ".env": "MAGIC=from_env",
+                "pyproject.toml": '[tool.pytest_env]\nenv_files = [".env", "missing.env"]',
+            },
             "+cli.env",
             {"MAGIC": "from_env", "EXTRA": "from_cli"},
             id="extend with missing config file",
@@ -658,20 +627,14 @@ def test_env_via_pyproject_toml_bad(pytester: pytest.Pytester, toml_name: str) -
 def test_envfile_cli(
     pytester: pytest.Pytester,
     env_test_template: str,
-    env_file_content: str | None,
-    cli_file_content: str,
-    config: str | None,
+    files: dict[str, str],
     cli_arg: str,
     expected_env: dict[str, str],
     mocker: MockerFixture,
 ) -> None:
     (pytester.path / "test_cli.py").write_text(env_test_template, encoding="utf-8")
-
-    if env_file_content:
-        (pytester.path / ".env").write_text(env_file_content, encoding="utf-8")
-    (pytester.path / "cli.env").write_text(cli_file_content, encoding="utf-8")
-    if config:
-        (pytester.path / "pyproject.toml").write_text(config, encoding="utf-8")
+    for name, content in files.items():
+        (pytester.path / name).write_text(content, encoding="utf-8")
 
     new_env = {
         "_TEST_ENV": repr(expected_env),
@@ -680,9 +643,7 @@ def test_envfile_cli(
     }
 
     mocker.patch.dict(os.environ, new_env, clear=True)
-    result = pytester.runpytest("--envfile", cli_arg)
-
-    result.assert_outcomes(passed=1)
+    pytester.runpytest("--envfile", cli_arg).assert_outcomes(passed=1)
 
 
 def test_envfile_cli_skip_if_set(pytester: pytest.Pytester, env_test_template: str, mocker: MockerFixture) -> None:
@@ -705,9 +666,7 @@ def test_envfile_cli_skip_if_set(pytester: pytest.Pytester, env_test_template: s
     }
 
     mocker.patch.dict(os.environ, new_env, clear=True)
-    result = pytester.runpytest("--envfile", "cli.env")
-
-    result.assert_outcomes(passed=1)
+    pytester.runpytest("--envfile", "cli.env").assert_outcomes(passed=1)
 
 
 @pytest.mark.parametrize(
@@ -733,14 +692,25 @@ def test_envfile_cli_missing_file(pytester: pytest.Pytester, cli_arg: str, mocke
     assert any(f"Environment file not found: {error_file}" in line for line in result.errlines)
 
 
-@pytest.mark.parametrize("config_name", ["pytest.toml", ".pytest.toml"])
-@pytest.mark.parametrize("fallback_location", ["sibling", "parent"])
+@pytest.mark.parametrize(
+    "config_name",
+    [
+        pytest.param("pytest.toml", id="pytest-toml"),
+        pytest.param(".pytest.toml", id="hidden-pytest-toml"),
+    ],
+)
+@pytest.mark.parametrize(
+    "fallback_dir",
+    [
+        pytest.param("child", id="sibling"),
+        pytest.param(".", id="parent"),
+    ],
+)
 def test_pyproject_env_with_native_pytest_config(
-    pytester: pytest.Pytester, child: Path, config_name: str, fallback_location: str
+    pytester: pytest.Pytester, child: Path, config_name: str, fallback_dir: str
 ) -> None:
     (child / config_name).write_text('[pytest]\naddopts = ["-q"]\n', encoding="utf-8")
-    fallback_directory: Final[Path] = child if fallback_location == "sibling" else pytester.path
-    (fallback_directory / "pyproject.toml").write_text(
+    (pytester.path / fallback_dir / "pyproject.toml").write_text(
         '[tool.pytest_env]\nNATIVE_CONFIG_ENV = "configured"\n', encoding="utf-8"
     )
     (child / "test_configured_env.py").write_text(
@@ -753,31 +723,36 @@ def test_pyproject_env_with_native_pytest_config(
 
 
 @pytest.mark.parametrize(
-    "config_name",
+    ("config_name", "section", "fallback_name", "fallback_section"),
     [
-        pytest.param("pytest.toml", id="pytest-toml"),
-        pytest.param(".pytest.toml", id="hidden-pytest-toml"),
-        pytest.param("pyproject.toml", id="pyproject-toml"),
+        pytest.param("pytest.toml", "pytest_env", "pyproject.toml", "tool.pytest_env", id="pytest-toml"),
+        pytest.param(".pytest.toml", "pytest_env", "pyproject.toml", "tool.pytest_env", id="hidden-pytest-toml"),
+        pytest.param("pyproject.toml", "tool.pytest_env", "pytest.toml", "pytest_env", id="pyproject-toml"),
     ],
 )
 @pytest.mark.parametrize(
     "empty_section",
     [pytest.param("", id="empty-table"), pytest.param("env_files = []\n", id="empty-env-files")],
 )
-@pytest.mark.parametrize("fallback_location", ["sibling", "parent"])
+@pytest.mark.parametrize(
+    "fallback_dir",
+    [
+        pytest.param("child", id="sibling"),
+        pytest.param(".", id="parent"),
+    ],
+)
 def test_empty_env_section_stops_discovery(
     pytester: pytest.Pytester,
     child: Path,
     config_name: str,
+    section: str,
+    fallback_name: str,
+    fallback_section: str,
     empty_section: str,
-    fallback_location: str,
+    fallback_dir: str,
 ) -> None:
-    section: Final[str] = "tool.pytest_env" if config_name == "pyproject.toml" else "pytest_env"
     (child / config_name).write_text(f"[{section}]\n{empty_section}", encoding="utf-8")
-    fallback_directory: Final[Path] = child if fallback_location == "sibling" else pytester.path
-    fallback_name: Final[str] = "pytest.toml" if config_name == "pyproject.toml" else "pyproject.toml"
-    fallback_section: Final[str] = "tool.pytest_env" if fallback_name == "pyproject.toml" else "pytest_env"
-    (fallback_directory / fallback_name).write_text(
+    (pytester.path / fallback_dir / fallback_name).write_text(
         f'[{fallback_section}]\nPYTEST_ENV_INHERITED = "parent-value"\n', encoding="utf-8"
     )
     (child / "test_configured_env.py").write_text(
@@ -886,16 +861,20 @@ def test_native_env_files_override_ini(
 
 
 @pytest.mark.parametrize(
-    "file_key",
+    ("file_key", "expected", "action"),
     [
-        pytest.param("PYTEST_ENV_CASE", id="same-case"),
-        pytest.param("pytest_env_case", id="different-case"),
+        pytest.param("PYTEST_ENV_CASE", "original", "SKIP", id="same-case"),
+        pytest.param(
+            "pytest_env_case",
+            "original" if os.name == "nt" else "from_file",
+            "SKIP" if os.name == "nt" else "SET",
+            id="different-case",
+        ),
     ],
 )
 def test_env_files_skip_if_set_respects_platform_case(
-    pytester: pytest.Pytester, file_key: str, mocker: MockerFixture
+    pytester: pytest.Pytester, file_key: str, expected: str, action: str, mocker: MockerFixture
 ) -> None:
-    expected: Final[str] = "from_file" if os.name != "nt" and file_key == "pytest_env_case" else "original"
     (pytester.path / ".env").write_text(f"{file_key}=from_file\n", encoding="utf-8")
     (pytester.path / "pytest.ini").write_text(
         "[pytest]\nenv_files = .env\nenv_files_skip_if_set = true\n", encoding="utf-8"
@@ -918,5 +897,4 @@ def test_env_files_skip_if_set_respects_platform_case(
     result: Final[pytest.RunResult] = pytester.runpytest("--pytest-env-verbose")
 
     result.assert_outcomes(passed=1)
-    action: Final[str] = "SET" if expected == "from_file" else "SKIP"
     result.stdout.fnmatch_lines([f"*{action}*{file_key}={expected}*(from*.env*"])
