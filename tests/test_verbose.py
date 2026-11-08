@@ -3,13 +3,13 @@ from __future__ import annotations
 import os
 from textwrap import dedent
 from typing import TYPE_CHECKING
-from unittest import mock
 
 if TYPE_CHECKING:
     import pytest
+    from pytest_mock import MockerFixture
 
 
-def test_verbose_shows_set_from_ini(pytester: pytest.Pytester, env_test_template: str) -> None:
+def test_verbose_shows_set_from_ini(pytester: pytest.Pytester, env_test_template: str, mocker: MockerFixture) -> None:
     (pytester.path / "test_it.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / "pytest.ini").write_text("[pytest]\nenv = MAGIC=alpha", encoding="utf-8")
 
@@ -18,15 +18,17 @@ def test_verbose_shows_set_from_ini(pytester: pytest.Pytester, env_test_template
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest("--pytest-env-verbose")
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest("--pytest-env-verbose")
 
     result.assert_outcomes(passed=1)
     result.stdout.fnmatch_lines(["*pytest-env:*", "*SET*MAGIC=alpha*(from*pytest.ini*"])
 
 
 def test_verbose_shows_ini_source_when_pyproject_lacks_pytest_env(
-    pytester: pytest.Pytester, env_test_template: str
+    pytester: pytest.Pytester,
+    env_test_template: str,
+    mocker: MockerFixture,
 ) -> None:
     (pytester.path / "test_it.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / "pyproject.toml").write_text(
@@ -44,14 +46,14 @@ def test_verbose_shows_ini_source_when_pyproject_lacks_pytest_env(
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest("--pytest-env-verbose")
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest("--pytest-env-verbose")
 
     result.assert_outcomes(passed=1)
     result.stdout.fnmatch_lines(["*SET*MAGIC=alpha*(from*pytest.ini*"])
 
 
-def test_verbose_shows_set_from_toml(pytester: pytest.Pytester, env_test_template: str) -> None:
+def test_verbose_shows_set_from_toml(pytester: pytest.Pytester, env_test_template: str, mocker: MockerFixture) -> None:
     (pytester.path / "test_it.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / "pyproject.toml").write_text(
         '[tool.pytest_env]\nMY_VAR = "hello"',
@@ -63,14 +65,16 @@ def test_verbose_shows_set_from_toml(pytester: pytest.Pytester, env_test_templat
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest("--pytest-env-verbose")
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest("--pytest-env-verbose")
 
     result.assert_outcomes(passed=1)
     result.stdout.fnmatch_lines(["*pytest-env:*", "*SET*MY_VAR=hello*(from*pyproject.toml*"])
 
 
-def test_verbose_shows_set_from_env_file(pytester: pytest.Pytester, env_test_template: str) -> None:
+def test_verbose_shows_set_from_env_file(
+    pytester: pytest.Pytester, env_test_template: str, mocker: MockerFixture
+) -> None:
     (pytester.path / "test_it.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / ".env").write_text("FROM_FILE=value", encoding="utf-8")
     (pytester.path / "pyproject.toml").write_text(
@@ -83,14 +87,16 @@ def test_verbose_shows_set_from_env_file(pytester: pytest.Pytester, env_test_tem
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest("--pytest-env-verbose")
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest("--pytest-env-verbose")
 
     result.assert_outcomes(passed=1)
     result.stdout.fnmatch_lines(["*SET*FROM_FILE=value*(from*.env*"])
 
 
-def test_verbose_shows_skip_from_env_file(pytester: pytest.Pytester, env_test_template: str) -> None:
+def test_verbose_shows_skip_from_env_file(
+    pytester: pytest.Pytester, env_test_template: str, mocker: MockerFixture
+) -> None:
     (pytester.path / "test_it.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / ".env").write_text("FROM_FILE=value", encoding="utf-8")
     (pytester.path / "pyproject.toml").write_text(
@@ -108,14 +114,14 @@ def test_verbose_shows_skip_from_env_file(pytester: pytest.Pytester, env_test_te
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest("--pytest-env-verbose")
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest("--pytest-env-verbose")
 
     result.assert_outcomes(passed=1)
     result.stdout.fnmatch_lines(["*SKIP*FROM_FILE=original*(from*.env*"])
 
 
-def test_verbose_shows_skip(pytester: pytest.Pytester, env_test_template: str) -> None:
+def test_verbose_shows_skip(pytester: pytest.Pytester, env_test_template: str, mocker: MockerFixture) -> None:
     (pytester.path / "test_it.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / "pytest.ini").write_text("[pytest]\nenv = D:EXISTING=new", encoding="utf-8")
 
@@ -125,14 +131,14 @@ def test_verbose_shows_skip(pytester: pytest.Pytester, env_test_template: str) -
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest("--pytest-env-verbose")
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest("--pytest-env-verbose")
 
     result.assert_outcomes(passed=1)
     result.stdout.fnmatch_lines(["*SKIP*EXISTING=original*"])
 
 
-def test_verbose_shows_unset(pytester: pytest.Pytester, env_test_template: str) -> None:
+def test_verbose_shows_unset(pytester: pytest.Pytester, env_test_template: str, mocker: MockerFixture) -> None:
     (pytester.path / "test_it.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / "pytest.ini").write_text("[pytest]\nenv = U:TO_REMOVE", encoding="utf-8")
 
@@ -142,14 +148,14 @@ def test_verbose_shows_unset(pytester: pytest.Pytester, env_test_template: str) 
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest("--pytest-env-verbose")
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest("--pytest-env-verbose")
 
     result.assert_outcomes(passed=1)
     result.stdout.fnmatch_lines(["*UNSET*TO_REMOVE*"])
 
 
-def test_verbose_shows_transform(pytester: pytest.Pytester, env_test_template: str) -> None:
+def test_verbose_shows_transform(pytester: pytest.Pytester, env_test_template: str, mocker: MockerFixture) -> None:
     (pytester.path / "test_it.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / "pyproject.toml").write_text(
         dedent("""\
@@ -165,14 +171,16 @@ def test_verbose_shows_transform(pytester: pytest.Pytester, env_test_template: s
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest("--pytest-env-verbose")
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest("--pytest-env-verbose")
 
     result.assert_outcomes(passed=1)
     result.stdout.fnmatch_lines(["*SET*GREETING=hello_world*"])
 
 
-def test_no_verbose_output_without_flag(pytester: pytest.Pytester, env_test_template: str) -> None:
+def test_no_verbose_output_without_flag(
+    pytester: pytest.Pytester, env_test_template: str, mocker: MockerFixture
+) -> None:
     (pytester.path / "test_it.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / "pytest.ini").write_text("[pytest]\nenv = MAGIC=alpha", encoding="utf-8")
 
@@ -181,14 +189,14 @@ def test_no_verbose_output_without_flag(pytester: pytest.Pytester, env_test_temp
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest()
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest()
 
     result.assert_outcomes(passed=1)
     result.stdout.no_fnmatch_line("*pytest-env:*")
 
 
-def test_verbose_multiple_sources(pytester: pytest.Pytester, env_test_template: str) -> None:
+def test_verbose_multiple_sources(pytester: pytest.Pytester, env_test_template: str, mocker: MockerFixture) -> None:
     (pytester.path / "test_it.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / ".env").write_text("FROM_FILE=file_val", encoding="utf-8")
     (pytester.path / "pyproject.toml").write_text(
@@ -205,8 +213,8 @@ def test_verbose_multiple_sources(pytester: pytest.Pytester, env_test_template: 
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         "PYTEST_PLUGINS": "pytest_env.plugin",
     }
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest("--pytest-env-verbose")
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest("--pytest-env-verbose")
 
     result.assert_outcomes(passed=1)
     result.stdout.fnmatch_lines([

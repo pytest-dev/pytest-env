@@ -2,6 +2,6 @@ from __future__ import annotations
 
 
 def test_version() -> None:
-    import pytest_env  # ruff:ignore[import-outside-top-level]
+    import pytest_env  # ruff:ignore[import-outside-top-level] the import is the behavior under test
 
     assert pytest_env.__version__ is not None
