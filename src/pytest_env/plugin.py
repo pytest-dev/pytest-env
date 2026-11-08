@@ -21,7 +21,7 @@ _ENV_ACTIONS_KEY: Final[pytest.StashKey[list[str]]] = pytest.StashKey[list[str]]
 _TomlValue: TypeAlias = str | int | float | bool | datetime | list["_TomlValue"] | dict[str, "_TomlValue"]
 
 
-@dataclass(frozen=True, kw_only=True, slots=True)
+@dataclass
 class Entry:
     """Configuration entries."""
 
