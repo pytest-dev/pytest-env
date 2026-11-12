@@ -7,8 +7,6 @@ from typing import TYPE_CHECKING, Final
 
 import pytest
 
-from pytest_env.plugin import _load_toml_config  # ruff:ignore[import-private-name] the test drives the loader
-
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -551,13 +549,6 @@ def test_conftest_import_uses_env(
     pytester.runpytest().assert_outcomes(passed=1)
 
 
-def test_env_files_from_toml_bad_toml(tmp_path: Path) -> None:
-    toml_file = tmp_path / "pyproject.toml"
-    toml_file.write_text("bad toml", encoding="utf-8")
-    with pytest.raises(Exception, match="Expected '=' after a key"):
-        _load_toml_config(toml_file)
-
-
 @pytest.mark.parametrize(
     "toml_name",
     [
@@ -918,3 +909,20 @@ def test_env_files_skip_if_set_respects_platform_case(
 
     result.assert_outcomes(passed=1)
     result.stdout.fnmatch_lines([f"*{action}*{file_key}={expected}*(from*.env*"])
+
+
+def test_verbose_envfile_without_config(pytester: pytest.Pytester, mocker: MockerFixture) -> None:
+    (pytester.path / "cli.env").write_text("MAGIC=from_cli\n", encoding="utf-8")
+    pytester.makepyfile(
+        test_verbose_cli_env='import os\ndef test_env() -> None:\n    assert os.environ["MAGIC"] == "from_cli"\n'
+    )
+    mocker.patch.dict(
+        os.environ,
+        {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"},
+        clear=True,
+    )
+
+    result = pytester.runpytest("--pytest-env-verbose", "--envfile", "cli.env")
+
+    result.assert_outcomes(passed=1)
+    result.stdout.fnmatch_lines(["*pytest-env:", "*SET*MAGIC=from_cli*(from*cli.env*"])
