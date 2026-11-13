@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 
     from pytest_mock import MockerFixture
 
+_TEST_NAME_PATTERN: Final[re.Pattern[str]] = re.compile(r"\W|^(?=\d)")
+
 
 @pytest.mark.parametrize(
     ("env", "ini", "expected_env"),
@@ -124,7 +126,7 @@ def test_env_via_pytest(
     request: pytest.FixtureRequest,
     mocker: MockerFixture,
 ) -> None:
-    test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
+    test_name = _TEST_NAME_PATTERN.sub("_", request.node.callspec.id).lower()
     (pytester.path / f"test_{test_name}.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / "pytest.ini").write_text(ini, encoding="utf-8")
 
@@ -298,7 +300,7 @@ def test_env_via_toml(
     request: pytest.FixtureRequest,
     mocker: MockerFixture,
 ) -> None:
-    test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
+    test_name = _TEST_NAME_PATTERN.sub("_", request.node.callspec.id).lower()
     for name, content in files.items():
         (pytester.path / name).parent.mkdir(parents=True, exist_ok=True)
         (pytester.path / name).write_text(content, encoding="utf-8")
@@ -482,7 +484,7 @@ def test_env_via_env_file(
     request: pytest.FixtureRequest,
     mocker: MockerFixture,
 ) -> None:
-    test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
+    test_name = _TEST_NAME_PATTERN.sub("_", request.node.callspec.id).lower()
     (pytester.path / f"test_{test_name}.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / ".env").write_text(env_file_content, encoding="utf-8")
     config_file_names = {"pyproject": "pyproject.toml", "pytest.toml": "pytest.toml", "ini": "pytest.ini"}
