@@ -21,24 +21,6 @@ _ENV_ACTIONS_KEY: Final[pytest.StashKey[list[str]]] = pytest.StashKey[list[str]]
 _TomlValue: TypeAlias = str | int | float | bool | datetime | list["_TomlValue"] | dict[str, "_TomlValue"]
 
 
-@dataclass
-class Entry:
-    """Configuration entries."""
-
-    key: str
-    value: str
-    transform: bool
-    skip_if_set: bool
-    unset: bool = False
-
-
-@dataclass(frozen=True, kw_only=True, slots=True)
-class _TomlConfig:
-    env_files: list[str] | None
-    entries: list[Entry]
-    env_files_skip_if_set: bool | None
-
-
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add section to configuration files."""
     help_msg = "a line separated list of environment variables of the form (FLAG:)NAME=VALUE"
@@ -144,6 +126,13 @@ def _load_toml_config(config_path: Path) -> _TomlConfig:
     )
 
 
+@dataclass(frozen=True, kw_only=True, slots=True)
+class _TomlConfig:
+    env_files: list[str] | None
+    entries: list[Entry]
+    env_files_skip_if_set: bool | None
+
+
 def _parse_toml_config(config: dict[str, _TomlValue]) -> Generator[Entry, None, None]:
     for key, entry in config.items():
         if key == "env_files" and isinstance(entry, list):
@@ -157,6 +146,17 @@ def _parse_toml_config(config: dict[str, _TomlValue]) -> Generator[Entry, None, 
         else:
             value, transform, skip_if_set, unset = str(entry), False, False, False
         yield Entry(key=key, value=value, transform=transform, skip_if_set=skip_if_set, unset=unset)
+
+
+@dataclass
+class Entry:
+    """Configuration entries."""
+
+    key: str
+    value: str
+    transform: bool
+    skip_if_set: bool
+    unset: bool = False
 
 
 def _load_env_files(early_config: pytest.Config, env_files: list[str] | None) -> Generator[Path, None, None]:
