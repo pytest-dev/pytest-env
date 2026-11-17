@@ -215,6 +215,9 @@ Prefix flags modify behavior. Flags are case-insensitive and can be combined in 
 | `R:` | Raw -- skip `{VAR}` expansion (INI expands by default, unlike TOML). |
 | `U:` | Unset -- remove the variable from the environment entirely.          |
 
+A line with a flag other than `D`, `R` or `U`, or without a variable name, stops pytest with a usage error that gives
+the entry's position. The error does not show the line's value.
+
 In INI format variable expansion is enabled by default. In TOML format it requires `transform = true`.
 
 ### `.env` file format
