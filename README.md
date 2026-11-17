@@ -129,7 +129,8 @@ TEMP_VAR = { unset = true }
 
 `transform` expands `{VAR}` placeholders using existing environment variables. `skip_if_set` leaves the variable
 unchanged when it already exists. For `.env` files, use `env_files_skip_if_set = true`. `unset` removes it entirely
-(different from setting to empty string).
+(different from setting to empty string). When an entry combines `skip_if_set` with `unset`, an existing variable is
+kept.
 
 ### Set different environments for test suites
 
@@ -222,7 +223,8 @@ Prefix flags modify behavior. Flags are case-insensitive and can be combined in 
 | `R:` | Raw -- skip `{VAR}` expansion (INI expands by default, unlike TOML). |
 | `U:` | Unset -- remove the variable from the environment entirely.          |
 
-In INI format variable expansion is enabled by default. In TOML format it requires `transform = true`.
+In INI format variable expansion is enabled by default. In TOML format it requires `transform = true`. When an entry
+combines `D:` with `U:`, an existing variable is kept.
 
 ### `.env` file format
 
