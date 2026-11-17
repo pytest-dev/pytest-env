@@ -321,7 +321,7 @@ checks `pytest.toml`, `.pytest.toml`, and `pyproject.toml` in order, stopping at
 `pytest_env` section. Only regular files are considered, so directories and other entries with these names are skipped.
 A TOML file with another name selected with `-c` is checked before the walk and is read like `pytest.toml`. This means
 subdirectory configurations take precedence over parent configurations, allowing different settings for integration
-tests versus unit tests.
+tests versus unit tests. A file on that path that is not valid TOML stops pytest with a usage error naming the file.
 
 ### Choosing a configuration format
 

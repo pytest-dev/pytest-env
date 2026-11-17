@@ -94,10 +94,15 @@ def _find_toml_config(early_config: pytest.Config) -> Path | None:
 def _has_env_section(config_path: Path) -> bool:
     # Check section presence without treating an explicit empty section as absent.
     with config_path.open("rb") as file_handler:
-        config = tomllib.load(file_handler)
+        try:
+            config = tomllib.load(file_handler)
+        except (tomllib.TOMLDecodeError, UnicodeDecodeError) as error:
+            msg = f"{config_path}: {error}"
+            raise pytest.UsageError(msg) from error
     if config_path.name == "pyproject.toml":
-        config = config.get("tool", {})
-    return "pytest_env" in config
+        tool = config.get("tool", {})
+        return isinstance(tool, dict) and isinstance(tool.get("pytest_env"), dict)
+    return isinstance(config.get("pytest_env"), dict)
 
 
 def _load_toml_config(config_path: Path) -> _TomlConfig:

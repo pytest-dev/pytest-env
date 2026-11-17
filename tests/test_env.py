@@ -927,6 +927,36 @@ def test_empty_env_section_stops_discovery(
     assert result.ret == pytest.ExitCode.OK
 
 
+def test_invalid_parent_toml_names_file(pytester: pytest.Pytester, child: Path) -> None:
+    (child / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    parent_file = pytester.path / "pyproject.toml"
+    parent_file.write_text("bad toml", encoding="utf-8")
+    result: Final[pytest.RunResult] = pytester.runpytest("-c", str(child / "pytest.ini"), str(child))
+    assert (result.ret, result.errlines) == (
+        pytest.ExitCode.USAGE_ERROR,
+        [f"ERROR: {parent_file}: Expected '=' after a key in a key/value pair (at line 1, column 5)", ""],
+    )
+
+
+@pytest.mark.parametrize(
+    ("parent_name", "parent_text"),
+    [
+        pytest.param("pyproject.toml", 'tool = "notes: try pytest_env later"\n', id="tool-string"),
+        pytest.param("pyproject.toml", "tool = 1\n", id="tool-int"),
+        pytest.param("pytest.toml", "pytest_env = 1\n", id="pytest-env-int"),
+    ],
+)
+def test_non_table_section_skipped_during_discovery(
+    pytester: pytest.Pytester, child: Path, parent_name: str, parent_text: str
+) -> None:
+    (child / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    (pytester.path / parent_name).write_text(parent_text, encoding="utf-8")
+    (child / "test_configured_env.py").write_text("def test_env() -> None:\n    pass\n", encoding="utf-8")
+    result: Final[pytest.RunResult] = pytester.runpytest("-c", str(child / "pytest.ini"), str(child))
+    result.assert_outcomes(passed=1)
+    assert result.ret == pytest.ExitCode.OK
+
+
 @pytest.mark.parametrize(
     "name",
     [
