@@ -160,6 +160,41 @@ def test_env_via_pytest(
 
 
 @pytest.mark.parametrize(
+    ("env", "message", "hidden"),
+    [
+        pytest.param(
+            ["DR:API_TOKEN=secret-value"],
+            "pytest-env: env entry 1: unknown flag 'DR', expected D, R or U",
+            "secret-value",
+            id="unknown-flag-hides-value",
+        ),
+        pytest.param(
+            ["DB_HOST: test-db"],
+            "pytest-env: env entry 1: unknown flag 'DB_HOST', expected D, R or U",
+            "DB_HOST: test-db",
+            id="unknown-flag-without-equals",
+        ),
+        pytest.param(["=value"], "pytest-env: env entry 1: missing variable name", "=value", id="missing-name"),
+        pytest.param(["D:"], "pytest-env: env entry 1: missing variable name", "D:", id="flag-without-name"),
+        pytest.param(
+            ["GOOD=1", "BAD: x"],
+            "pytest-env: env entry 2: unknown flag 'BAD', expected D, R or U",
+            "BAD: x",
+            id="second-entry-reported",
+        ),
+    ],
+)
+def test_env_via_ini_invalid_line(pytester: pytest.Pytester, env: list[str], message: str, hidden: str) -> None:
+    (pytester.path / "pytest.ini").write_text(
+        "[pytest]\nenv =\n" + "\n".join(f"    {line}" for line in env), encoding="utf-8"
+    )
+
+    result = pytester.runpytest()
+    assert (result.ret, result.errlines) == (pytest.ExitCode.USAGE_ERROR, [f"ERROR: {message}", ""])
+    assert hidden not in result.stdout.str() + result.stderr.str()
+
+
+@pytest.mark.parametrize(
     ("env", "files", "expected_env", "test_dir"),
     [
         pytest.param(
@@ -603,6 +638,39 @@ def test_env_via_pyproject_toml_bad(pytester: pytest.Pytester, toml_name: str) -
 
 
 @pytest.mark.parametrize(
+    ("config_file", "config_content"),
+    [
+        pytest.param("pytest.ini", "[pytest]\nenv = MAGIC={PLANET:-{SECRET}}", id="ini"),
+        pytest.param(
+            "pyproject.toml",
+            '[tool.pytest_env]\nMAGIC = { value = "{PLANET:-{SECRET}}", transform = true }',
+            id="native toml",
+        ),
+    ],
+)
+def test_invalid_template_is_usage_error_without_value(
+    pytester: pytest.Pytester, config_file: str, config_content: str, mocker: MockerFixture
+) -> None:
+    (pytester.path / config_file).write_text(config_content, encoding="utf-8")
+    pytester.makepyfile(test_it="def test_it() -> None:\n    pass")
+
+    new_env = {
+        "PLANET": "world",
+        "SECRET": "hunter2",
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_PLUGINS": "pytest_env.plugin",
+    }
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest()
+
+    assert (result.ret, result.errlines) == (
+        pytest.ExitCode.USAGE_ERROR,
+        ["ERROR: pytest-env: invalid {VAR} template in the value of 'MAGIC'", ""],
+    )
+    assert "hunter2" not in result.stdout.str() + result.stderr.str()
+
+
+@pytest.mark.parametrize(
     ("entry", "message"),
     [
         pytest.param(
@@ -728,6 +796,7 @@ def test_envfile_cli_skip_if_set(pytester: pytest.Pytester, env_test_template: s
     [
         pytest.param("nonexistent.env", id="missing file override"),
         pytest.param("+nonexistent.env", id="missing file extend"),
+        pytest.param("", id="empty value"),
     ],
 )
 def test_envfile_cli_missing_file(pytester: pytest.Pytester, cli_arg: str, mocker: MockerFixture) -> None:
@@ -882,6 +951,23 @@ def test_non_table_section_skipped_during_discovery(
 ) -> None:
     (child / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
     (pytester.path / parent_name).write_text(parent_text, encoding="utf-8")
+    (child / "test_configured_env.py").write_text("def test_env() -> None:\n    pass\n", encoding="utf-8")
+    result: Final[pytest.RunResult] = pytester.runpytest("-c", str(child / "pytest.ini"), str(child))
+    result.assert_outcomes(passed=1)
+    assert result.ret == pytest.ExitCode.OK
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("pytest.toml", id="pytest-toml"),
+        pytest.param(".pytest.toml", id="hidden-pytest-toml"),
+        pytest.param("pyproject.toml", id="pyproject-toml"),
+    ],
+)
+def test_directory_named_like_toml_config_skipped_in_parent(pytester: pytest.Pytester, child: Path, name: str) -> None:
+    (pytester.path / name).mkdir()
+    (child / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
     (child / "test_configured_env.py").write_text("def test_env() -> None:\n    pass\n", encoding="utf-8")
     result: Final[pytest.RunResult] = pytester.runpytest("-c", str(child / "pytest.ini"), str(child))
     result.assert_outcomes(passed=1)

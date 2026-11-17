@@ -86,7 +86,7 @@ def _find_toml_config(early_config: pytest.Config) -> Path | None:
     for current_path in [start_path, *start_path.parents]:
         for toml_name in ("pytest.toml", ".pytest.toml", "pyproject.toml"):
             toml_file = current_path / toml_name
-            if toml_file.exists() and _has_env_section(toml_file):
+            if toml_file.is_file() and _has_env_section(toml_file):
                 return toml_file
     return None
 
@@ -184,7 +184,7 @@ def _load_env_files(early_config: pytest.Config, env_files: list[str] | None) ->
     configured_env_files: Final[list[str]] = (
         env_files if env_files is not None else list(early_config.getini("env_files"))
     )
-    if not (cli_envfile := getattr(early_config.known_args_namespace, "envfile", None)):
+    if (cli_envfile := getattr(early_config.known_args_namespace, "envfile", None)) is None:
         yield from _existing_env_files(early_config, configured_env_files)
         return
     extend = cli_envfile.startswith("+")
@@ -237,7 +237,7 @@ def _apply_entries(early_config: pytest.Config, actions: list[tuple[str, str, st
             if actions is not None:
                 actions.append(("UNSET", entry.key, "", source))
         else:
-            final = entry.value.format(**os.environ) if entry.transform else entry.value
+            final = _expand_value(entry)
             os.environ[entry.key] = final
             if actions is not None:
                 actions.append(("SET", entry.key, final, source))
@@ -256,29 +256,50 @@ def _load_values(early_config: pytest.Config) -> Iterator[Entry]:
         yield from _load_toml_config(toml_config).entries
         return
 
-    for line in early_config.getini("env"):
+    for index, line in enumerate(early_config.getini("env"), start=1):
         # INI lines e.g. D:R:NAME=VAL has two flags (R and D), NAME key, and VAL value
         parts = line.partition("=")
         ini_key_parts = parts[0].split(":")
         flags = {k.strip().upper() for k in ini_key_parts[:-1]}
+        if unknown := flags - {"D", "R", "U"}:
+            # The value may be a secret, so the message names only the flag.
+            msg = f"pytest-env: env entry {index}: unknown flag {min(unknown)!r}, expected D, R or U"
+            raise pytest.UsageError(msg)
+        key = ini_key_parts[-1].strip()
+        if not key:
+            msg = f"pytest-env: env entry {index}: missing variable name"
+            raise pytest.UsageError(msg)
         # R: is a way to designate whether to use raw value -> perform no transformation of the value
         transform = "R" not in flags
         # D: is a way to mark the value to be set only if it does not exist yet
         skip_if_set = "D" in flags
         # U: is a way to unset (remove) an environment variable
-        unset = "U" in flags
-        key = ini_key_parts[-1].strip()
-        yield Entry(key=key, value=parts[2].strip(), transform=transform, skip_if_set=skip_if_set, unset=unset)
+        yield Entry(key=key, value=parts[2].strip(), transform=transform, skip_if_set=skip_if_set, unset="U" in flags)
+
+
+def _expand_value(entry: Entry) -> str:
+    if not entry.transform:
+        return entry.value
+    try:
+        return entry.value.format(**os.environ)
+    except ValueError:
+        # str.format quotes the expanded nested field, an environment value, in its message.
+        msg = f"pytest-env: invalid {{VAR}} template in the value of {entry.key!r}"
+        raise pytest.UsageError(msg) from None
 
 
 def _format_actions(actions: list[tuple[str, str, str, str]]) -> list[str]:
     lines = ["pytest-env:"]
     for action, key, value, source in actions:
         if action == "UNSET":
-            lines.append(f"  {action:<5} {key}  (from {source})")
+            lines.append(f"  {action:<5} {_escape(key)}  (from {_escape(source)})")
         else:
-            lines.append(f"  {action:<5} {key}={value}  (from {source})")
+            lines.append(f"  {action:<5} {_escape(key)}={_escape(value)}  (from {_escape(source)})")
     return lines
+
+
+def _escape(text: str) -> str:
+    return "".join(char if char.isprintable() else char.encode("unicode_escape").decode() for char in text)
 
 
 def pytest_report_header(config: pytest.Config) -> list[str] | None:

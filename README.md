@@ -223,8 +223,12 @@ Prefix flags modify behavior. Flags are case-insensitive and can be combined in 
 | `R:` | Raw -- skip `{VAR}` expansion (INI expands by default, unlike TOML). |
 | `U:` | Unset -- remove the variable from the environment entirely.          |
 
+A line with a flag other than `D`, `R` or `U`, or without a variable name, stops pytest with a usage error that gives
+the entry's position. The error does not show the line's value.
+
 In INI format variable expansion is enabled by default. In TOML format it requires `transform = true`. When an entry
-combines `D:` with `U:`, an existing variable is kept.
+combines `D:` with `U:`, an existing variable is kept. A malformed `{VAR}` template stops pytest with a usage error that
+names the entry.
 
 ### `.env` file format
 
@@ -288,6 +292,8 @@ pytest-env:
   UNSET TEMP_VAR                               (from /path/to/pyproject.toml)
 ```
 
+Non-printable characters in names, values and paths are shown escaped, so each assignment stays on one line.
+
 Useful for debugging when multiple env files, inline configuration, and CLI options interact.
 
 ## Explanation
@@ -312,10 +318,10 @@ configuration.
 
 The plugin walks up the directory tree starting from pytest's resolved configuration directory. For each directory, it
 checks `pytest.toml`, `.pytest.toml`, and `pyproject.toml` in order, stopping at the first file containing a
-`pytest_env` section. A TOML file with another name selected with `-c` is checked before the walk and is read like
-`pytest.toml`. This means subdirectory configurations take precedence over parent configurations, allowing different
-settings for integration tests versus unit tests. A file on that path that is not valid TOML stops pytest with a usage
-error naming the file.
+`pytest_env` section. Only regular files are considered, so directories and other entries with these names are skipped.
+A TOML file with another name selected with `-c` is checked before the walk and is read like `pytest.toml`. This means
+subdirectory configurations take precedence over parent configurations, allowing different settings for integration
+tests versus unit tests. A file on that path that is not valid TOML stops pytest with a usage error naming the file.
 
 ### Choosing a configuration format
 
