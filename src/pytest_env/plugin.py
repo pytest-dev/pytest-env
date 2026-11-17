@@ -213,7 +213,7 @@ def _apply_entries(early_config: pytest.Config, actions: list[tuple[str, str, st
             if actions is not None:
                 actions.append(("SKIP", entry.key, os.environ[entry.key], source))
         else:
-            final = entry.value.format(**os.environ) if entry.transform else entry.value
+            final = _expand_value(entry)
             os.environ[entry.key] = final
             if actions is not None:
                 actions.append(("SET", entry.key, final, source))
@@ -245,6 +245,17 @@ def _load_values(early_config: pytest.Config) -> Iterator[Entry]:
         unset = "U" in flags
         key = ini_key_parts[-1].strip()
         yield Entry(key=key, value=parts[2].strip(), transform=transform, skip_if_set=skip_if_set, unset=unset)
+
+
+def _expand_value(entry: Entry) -> str:
+    if not entry.transform:
+        return entry.value
+    try:
+        return entry.value.format(**os.environ)
+    except ValueError:
+        # str.format quotes the expanded nested field, an environment value, in its message.
+        msg = f"pytest-env: invalid {{VAR}} template in the value of {entry.key!r}"
+        raise pytest.UsageError(msg) from None
 
 
 def _format_actions(actions: list[tuple[str, str, str, str]]) -> list[str]:
