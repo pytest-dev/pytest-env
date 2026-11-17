@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Final, TypeAlias
 
 import pytest
 from dotenv import dotenv_values
+from dotenv.variables import parse_variables
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
@@ -192,16 +193,18 @@ def _apply_env_file(
     *,
     skip_if_set: bool,
 ) -> None:
-    for key, value in dotenv_values(env_file).items():
+    # python-dotenv expands references before the skip rule runs, so a reference would see a skipped assignment.
+    for key, value in dotenv_values(env_file, interpolate=not skip_if_set).items():
         if value is None:
             continue
         if skip_if_set and (env_key := key.upper() if os.name == "nt" else key) in preexisting:
             if actions is not None:
                 actions.append(("SKIP", key, preexisting[env_key], str(env_file)))
         else:
-            os.environ[key] = value
+            final = "".join(atom.resolve(os.environ) for atom in parse_variables(value)) if skip_if_set else value
+            os.environ[key] = final
             if actions is not None:
-                actions.append(("SET", key, value, str(env_file)))
+                actions.append(("SET", key, final, str(env_file)))
 
 
 def _apply_entries(early_config: pytest.Config, actions: list[tuple[str, str, str, str]] | None) -> None:
