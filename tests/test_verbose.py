@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 import os
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
+import pytest
+
 if TYPE_CHECKING:
-    import pytest
     from pytest_mock import MockerFixture
 
 
@@ -240,3 +242,45 @@ def test_verbose_multiple_sources(pytester: pytest.Pytester, env_test_template: 
         "*SET*FROM_FILE=file_val*(from*.env*",
         "*SET*INLINE=inline_val*(from*pyproject.toml*",
     ])
+
+
+@pytest.mark.parametrize(
+    ("value", "shown"),
+    [
+        pytest.param(
+            "hello\n  SET   DB_URL=postgres://other-db",
+            r"hello\n  SET   DB_URL=postgres://other-db",
+            id="newline - shown escaped on one line",
+        ),
+        pytest.param("café", "café", id="non-ASCII printable - shown unchanged"),
+    ],
+)
+def test_verbose_escapes_non_printable_value(
+    pytester: pytest.Pytester,
+    env_test_template: str,
+    mocker: MockerFixture,
+    value: str,
+    shown: str,
+) -> None:
+    (pytester.path / "test_it.py").write_text(env_test_template, encoding="utf-8")
+    (pytester.path / "pyproject.toml").write_text(
+        f"[tool.pytest_env]\nMAGIC = {json.dumps(value)}",
+        encoding="utf-8",
+    )
+
+    new_env = {
+        "_TEST_ENV": repr({"MAGIC": value}),
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_PLUGINS": "pytest_env.plugin",
+    }
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest("--pytest-env-verbose")
+
+    result.assert_outcomes(passed=1)
+    lines = result.stdout.lines
+    rootdir = next(line for line in lines if line.startswith("rootdir:"))
+    header = lines[lines.index("pytest-env:") : lines.index(rootdir)]
+    assert header == [
+        "pytest-env:",
+        f"  SET   MAGIC={shown}  (from {pytester.path / 'pyproject.toml'})",
+    ]

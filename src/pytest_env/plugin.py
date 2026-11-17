@@ -251,10 +251,14 @@ def _format_actions(actions: list[tuple[str, str, str, str]]) -> list[str]:
     lines = ["pytest-env:"]
     for action, key, value, source in actions:
         if action == "UNSET":
-            lines.append(f"  {action:<5} {key}  (from {source})")
+            lines.append(f"  {action:<5} {_escape(key)}  (from {_escape(source)})")
         else:
-            lines.append(f"  {action:<5} {key}={value}  (from {source})")
+            lines.append(f"  {action:<5} {_escape(key)}={_escape(value)}  (from {_escape(source)})")
     return lines
+
+
+def _escape(text: str) -> str:
+    return "".join(char if char.isprintable() else char.encode("unicode_escape").decode() for char in text)
 
 
 def pytest_report_header(config: pytest.Config) -> list[str] | None:
