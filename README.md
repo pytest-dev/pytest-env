@@ -314,9 +314,10 @@ configuration.
 
 The plugin walks up the directory tree starting from pytest's resolved configuration directory. For each directory, it
 checks `pytest.toml`, `.pytest.toml`, and `pyproject.toml` in order, stopping at the first file containing a
-`pytest_env` section. A TOML file with another name selected with `-c` is checked before the walk and is read like
-`pytest.toml`. This means subdirectory configurations take precedence over parent configurations, allowing different
-settings for integration tests versus unit tests.
+`pytest_env` section. Only regular files are considered, so directories and other entries with these names are skipped.
+A TOML file with another name selected with `-c` is checked before the walk and is read like `pytest.toml`. This means
+subdirectory configurations take precedence over parent configurations, allowing different settings for integration
+tests versus unit tests.
 
 ### Choosing a configuration format
 

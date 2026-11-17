@@ -860,6 +860,23 @@ def test_empty_env_section_stops_discovery(
 
 
 @pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("pytest.toml", id="pytest-toml"),
+        pytest.param(".pytest.toml", id="hidden-pytest-toml"),
+        pytest.param("pyproject.toml", id="pyproject-toml"),
+    ],
+)
+def test_directory_named_like_toml_config_skipped_in_parent(pytester: pytest.Pytester, child: Path, name: str) -> None:
+    (pytester.path / name).mkdir()
+    (child / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    (child / "test_configured_env.py").write_text("def test_env() -> None:\n    pass\n", encoding="utf-8")
+    result: Final[pytest.RunResult] = pytester.runpytest("-c", str(child / "pytest.ini"), str(child))
+    result.assert_outcomes(passed=1)
+    assert result.ret == pytest.ExitCode.OK
+
+
+@pytest.mark.parametrize(
     "ci_toml",
     [
         pytest.param('[pytest_env]\nMAGIC = "ci"\n', id="entries"),
