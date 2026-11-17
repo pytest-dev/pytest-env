@@ -174,6 +174,10 @@ following keys:
 | `skip_if_set` | bool   | Only set the variable if it is not already defined.                          |
 | `unset`       | bool   | Remove the variable from the environment (ignores `value`).                  |
 
+A table with any other key, a flag that is not a boolean, or neither `value` nor `unset = true` stops pytest with a
+usage error that names the entry. A dotted name must be quoted, as in `"DATABASE.HOST" = "x"`: unquoted
+`DATABASE.HOST = "x"` creates a `DATABASE` table instead.
+
 ### INI configuration format
 
 Define environment variables as line-separated `KEY=VALUE` entries:

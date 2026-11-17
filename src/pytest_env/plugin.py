@@ -136,12 +136,31 @@ def _parse_toml_config(config: dict[str, _TomlValue]) -> Generator[Entry, None, 
         if key == "env_files_skip_if_set" and isinstance(entry, bool):
             continue
         if isinstance(entry, dict):
-            unset = bool(entry.get("unset"))
-            value = str(entry.get("value", "")) if not unset else ""
-            transform, skip_if_set = bool(entry.get("transform")), bool(entry.get("skip_if_set"))
+            yield _parse_toml_table(key, entry)
         else:
-            value, transform, skip_if_set, unset = str(entry), False, False, False
-        yield Entry(key=key, value=value, transform=transform, skip_if_set=skip_if_set, unset=unset)
+            yield Entry(key=key, value=str(entry), transform=False, skip_if_set=False, unset=False)
+
+
+def _parse_toml_table(key: str, entry: dict[str, _TomlValue]) -> Entry:
+    if unknown := sorted(entry.keys() - {"value", "transform", "skip_if_set", "unset"}):
+        msg = f"pytest-env: entry {key!r} has unknown key {unknown[0]!r}"
+        raise pytest.UsageError(msg)
+    for flag in ("unset", "transform", "skip_if_set"):
+        if flag in entry and not isinstance(entry[flag], bool):
+            msg = f"pytest-env: entry {key!r}: {flag} must be true or false"
+            raise pytest.UsageError(msg)
+    unset = bool(entry.get("unset"))
+    if not unset and "value" not in entry:
+        msg = f"pytest-env: entry {key!r} needs a value or unset = true"
+        raise pytest.UsageError(msg)
+    value = "" if unset else str(entry["value"])
+    return Entry(
+        key=key,
+        value=value,
+        transform=bool(entry.get("transform")),
+        skip_if_set=bool(entry.get("skip_if_set")),
+        unset=unset,
+    )
 
 
 @dataclass
