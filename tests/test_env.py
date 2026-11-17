@@ -913,6 +913,67 @@ def test_env_files_skip_if_set_respects_platform_case(
     result.stdout.fnmatch_lines([f"*{action}*{file_key}={expected}*(from*.env*"])
 
 
+@pytest.mark.parametrize(
+    ("config_name", "config"),
+    [
+        pytest.param("pytest.ini", "[pytest]\nenv_files = .env\nenv_files_skip_if_set = true\n", id="ini"),
+        pytest.param(
+            "pyproject.toml",
+            '[tool.pytest_env]\nenv_files = [".env"]\nenv_files_skip_if_set = true\n',
+            id="toml",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    ("env", "env_file_content", "expected"),
+    [
+        pytest.param(
+            {"DB_HOST": "ci-db.internal"},
+            "DB_HOST=localhost\nDATABASE_URL=postgres://${DB_HOST}/app\n",
+            {"DB_HOST": "ci-db.internal", "DATABASE_URL": "postgres://ci-db.internal/app"},
+            id="reference to kept value",
+        ),
+        pytest.param(
+            {},
+            "DB_HOST=localhost\nDATABASE_URL=postgres://${DB_HOST}/app\n",
+            {"DB_HOST": "localhost", "DATABASE_URL": "postgres://localhost/app"},
+            id="reference to value set by file",
+        ),
+        pytest.param(
+            {},
+            "DATABASE_URL=postgres://${MISSING:-fallback}/app\n",
+            {"DATABASE_URL": "postgres://fallback/app"},
+            id="reference with default",
+        ),
+    ],
+)
+def test_env_files_skip_if_set_expands_kept_value(
+    pytester: pytest.Pytester,
+    mocker: MockerFixture,
+    config_name: str,
+    config: str,
+    env: dict[str, str],
+    env_file_content: str,
+    expected: dict[str, str],
+) -> None:
+    (pytester.path / config_name).write_text(config, encoding="utf-8")
+    (pytester.path / ".env").write_text(env_file_content, encoding="utf-8")
+    pytester.makepyfile(
+        test_kept=dedent(f"""\
+            import os
+
+            def test_kept() -> None:
+                assert {{key: os.environ.get(key) for key in {tuple(expected)!r}}} == {expected!r}
+        """),
+    )
+    mocker.patch.dict(
+        os.environ,
+        {**env, "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"},
+        clear=True,
+    )
+    pytester.runpytest().assert_outcomes(passed=1)
+
+
 def test_verbose_envfile_without_config(pytester: pytest.Pytester, mocker: MockerFixture) -> None:
     (pytester.path / "cli.env").write_text("MAGIC=from_cli\n", encoding="utf-8")
     pytester.makepyfile(

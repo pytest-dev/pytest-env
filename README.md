@@ -97,7 +97,8 @@ pytest --envfile .env.local           # ignore configured env_files, load only t
 pytest --envfile +.env.override       # load configured env_files first, then this file on top
 ```
 
-To keep existing environment variables (including with `--envfile`), set `env_files_skip_if_set = true`:
+To keep existing environment variables (including with `--envfile`), set `env_files_skip_if_set = true`. A `${VAR}`
+reference in a `.env` file then expands to the kept value:
 
 ```toml
 [tool.pytest_env]
