@@ -169,7 +169,9 @@ def _load_env_files(early_config: pytest.Config, env_files: list[str] | None) ->
         return
     extend = cli_envfile.startswith("+")
     name = cli_envfile[1:] if extend else cli_envfile
-    if not (resolved := early_config.rootpath / name).is_file():
+    # pytest resolves the rootdir before --envfile is registered, so a separate PATH value may have moved it.
+    candidates = (early_config.invocation_params.dir / name, early_config.rootpath / name)
+    if not (resolved := next((path for path in candidates if path.is_file()), None)):
         msg = f"Environment file not found: {name}"
         raise FileNotFoundError(msg)
     if extend:
