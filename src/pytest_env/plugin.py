@@ -179,7 +179,7 @@ def _load_env_files(early_config: pytest.Config, env_files: list[str] | None) ->
     configured_env_files: Final[list[str]] = (
         env_files if env_files is not None else list(early_config.getini("env_files"))
     )
-    if not (cli_envfile := getattr(early_config.known_args_namespace, "envfile", None)):
+    if (cli_envfile := getattr(early_config.known_args_namespace, "envfile", None)) is None:
         yield from _existing_env_files(early_config, configured_env_files)
         return
     extend = cli_envfile.startswith("+")
