@@ -161,6 +161,8 @@ CONDITIONAL = { value = "default", skip_if_set = true }
 REMOVED = { unset = true }
 ```
 
+A TOML file with another name selected with `-c` is read like `pytest.toml`, from its `[pytest_env]` table.
+
 Each key is the environment variable name. Values can be plain values (cast to string) or inline tables with the
 following keys:
 
@@ -293,15 +295,17 @@ When multiple sources define the same variable, precedence applies in this order
 
 When multiple configuration formats are present, TOML native format (`[pytest_env]` / `[tool.pytest_env]`) takes
 precedence over INI format. Among TOML files, the first file with a `pytest_env` section wins, checked in order:
-`pytest.toml`, `.pytest.toml`, `pyproject.toml`. If no TOML file contains `pytest_env`, the plugin falls back to
-INI-style `env` configuration.
+`pytest.toml`, `.pytest.toml`, `pyproject.toml`. A TOML file with another name selected with `-c` is checked first and
+is read like `pytest.toml`. If no TOML file contains `pytest_env`, the plugin falls back to INI-style `env`
+configuration.
 
 ### File discovery
 
 The plugin walks up the directory tree starting from pytest's resolved configuration directory. For each directory, it
 checks `pytest.toml`, `.pytest.toml`, and `pyproject.toml` in order, stopping at the first file containing a
-`pytest_env` section. This means subdirectory configurations take precedence over parent configurations, allowing
-different settings for integration tests versus unit tests.
+`pytest_env` section. A TOML file with another name selected with `-c` is checked before the walk and is read like
+`pytest.toml`. This means subdirectory configurations take precedence over parent configurations, allowing different
+settings for integration tests versus unit tests.
 
 ### Choosing a configuration format
 
