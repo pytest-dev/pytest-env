@@ -115,6 +115,24 @@ _TEST_NAME_PATTERN: Final[re.Pattern[str]] = re.compile(r"\W|^(?=\d)")
             {"MAGIC": "beta"},
             id="U flag then set - var is set",
         ),
+        pytest.param(
+            {"KEEP": "caller-value"},
+            "[pytest]\nenv = D:U:KEEP",
+            {"KEEP": "caller-value"},
+            id="D and U flags - existing var kept",
+        ),
+        pytest.param(
+            {"KEEP": "caller-value"},
+            "[pytest]\nenv = U:D:KEEP",
+            {"KEEP": "caller-value"},
+            id="U and D flags reversed - existing var kept",
+        ),
+        pytest.param(
+            {},
+            "[pytest]\nenv = D:U:KEEP",
+            {"KEEP": None},
+            id="D and U flags - non-existing var stays unset",
+        ),
     ],
 )
 def test_env_via_pytest(
@@ -312,6 +330,20 @@ def test_env_via_ini_invalid_line(pytester: pytest.Pytester, env: list[str], mes
             {"MAGIC": None},
             ".",
             id="pyproject toml unset non-existing",
+        ),
+        pytest.param(
+            {"KEEP": "caller-value"},
+            {"pyproject.toml": "[tool.pytest_env]\nKEEP = {unset = true, skip_if_set = true}"},
+            {"KEEP": "caller-value"},
+            ".",
+            id="pyproject toml unset and skip_if_set - existing var kept",
+        ),
+        pytest.param(
+            {},
+            {"pyproject.toml": "[tool.pytest_env]\nKEEP = {unset = true, skip_if_set = true}"},
+            {"KEEP": None},
+            ".",
+            id="pyproject toml unset and skip_if_set - non-existing var stays unset",
         ),
         pytest.param(
             {},
@@ -606,6 +638,35 @@ def test_env_via_pyproject_toml_bad(pytester: pytest.Pytester, toml_name: str) -
 
 
 @pytest.mark.parametrize(
+    ("entry", "message"),
+    [
+        pytest.param(
+            'MAGIC = { value = "secret-value", unset = "false" }',
+            "entry 'MAGIC': unset must be true or false",
+            id="unset-string",
+        ),
+        pytest.param(
+            'MAGIC = { value = "x", skip_if_set = 1 }',
+            "entry 'MAGIC': skip_if_set must be true or false",
+            id="skip-if-set-integer",
+        ),
+        pytest.param('MAGIC = { val = "x" }', "entry 'MAGIC' has unknown key 'val'", id="unknown-key"),
+        pytest.param('MAGIC.HOST = "x"', "entry 'MAGIC' has unknown key 'HOST'", id="nested-table"),
+        pytest.param(
+            "MAGIC = { transform = true }",
+            "entry 'MAGIC' needs a value or unset = true",
+            id="flag-without-value",
+        ),
+    ],
+)
+def test_env_via_toml_bad_entry(pytester: pytest.Pytester, entry: str, message: str) -> None:
+    (pytester.path / "pyproject.toml").write_text(f"[tool.pytest_env]\n{entry}\n", encoding="utf-8")
+
+    result = pytester.runpytest()
+    assert (result.ret, result.errlines) == (pytest.ExitCode.USAGE_ERROR, [f"ERROR: pytest-env: {message}", ""])
+
+
+@pytest.mark.parametrize(
     ("files", "cli_arg", "expected_env"),
     [
         pytest.param(
@@ -720,6 +781,47 @@ def test_envfile_cli_missing_file(pytester: pytest.Pytester, cli_arg: str, mocke
     assert any(f"Environment file not found: {error_file}" in line for line in result.errlines)
 
 
+def test_envfile_cli_separate_arg_resolves_from_invocation_dir(
+    pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
+    (pytester.path / "ci.env").write_text("WHICH=too-high", encoding="utf-8")
+    work: Final[Path] = pytester.path / "work"
+    project: Final[Path] = work / "project"
+    project.mkdir(parents=True)
+    (work / "ci.env").write_text("WHICH=named", encoding="utf-8")
+    (project / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    (project / "test_which.py").write_text(
+        'import os\ndef test_which() -> None:\n    assert os.environ["WHICH"] == "named"\n', encoding="utf-8"
+    )
+
+    mocker.patch.dict(
+        os.environ,
+        {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"},
+        clear=True,
+    )
+    monkeypatch.chdir(project)
+    pytester.runpytest("--envfile", "../ci.env").assert_outcomes(passed=1)
+
+
+def test_envfile_cli_falls_back_to_rootdir(
+    pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
+    (pytester.path / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    (pytester.path / "root.env").write_text("WHICH=root", encoding="utf-8")
+    sub: Final[Path] = pytester.mkdir("sub")
+    (sub / "test_which.py").write_text(
+        'import os\ndef test_which() -> None:\n    assert os.environ["WHICH"] == "root"\n', encoding="utf-8"
+    )
+
+    mocker.patch.dict(
+        os.environ,
+        {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"},
+        clear=True,
+    )
+    monkeypatch.chdir(sub)
+    pytester.runpytest("--envfile=root.env").assert_outcomes(passed=1)
+
+
 @pytest.mark.parametrize(
     "config_name",
     [
@@ -787,6 +889,30 @@ def test_empty_env_section_stops_discovery(
         'import os\ndef test_env() -> None:\n    assert "PYTEST_ENV_INHERITED" not in os.environ\n', encoding="utf-8"
     )
     result: Final[pytest.RunResult] = pytester.runpytest("-c", str(child / config_name), str(child))
+    result.assert_outcomes(passed=1)
+    assert result.ret == pytest.ExitCode.OK
+
+
+@pytest.mark.parametrize(
+    "ci_toml",
+    [
+        pytest.param('[pytest_env]\nMAGIC = "ci"\n', id="entries"),
+        pytest.param('[pytest_env]\nenv_files = [".env"]\n', id="env-files"),
+    ],
+)
+def test_custom_named_toml_selected_with_c(pytester: pytest.Pytester, mocker: MockerFixture, ci_toml: str) -> None:
+    mocker.patch.dict(
+        os.environ,
+        {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"},
+        clear=True,
+    )
+    (pytester.path / "pyproject.toml").write_text('[tool.pytest_env]\nMAGIC = "dev"\n', encoding="utf-8")
+    (pytester.path / "ci.toml").write_text(ci_toml, encoding="utf-8")
+    (pytester.path / ".env").write_text("MAGIC=ci\n", encoding="utf-8")
+    (pytester.path / "test_magic.py").write_text(
+        'import os\ndef test_env() -> None:\n    assert os.environ["MAGIC"] == "ci"\n', encoding="utf-8"
+    )
+    result: Final[pytest.RunResult] = pytester.runpytest("-c", "ci.toml")
     result.assert_outcomes(passed=1)
     assert result.ret == pytest.ExitCode.OK
 
@@ -946,6 +1072,67 @@ def test_env_files_skip_if_set_respects_platform_case(
 
     result.assert_outcomes(passed=1)
     result.stdout.fnmatch_lines([f"*{action}*{file_key}={expected}*(from*.env*"])
+
+
+@pytest.mark.parametrize(
+    ("config_name", "config"),
+    [
+        pytest.param("pytest.ini", "[pytest]\nenv_files = .env\nenv_files_skip_if_set = true\n", id="ini"),
+        pytest.param(
+            "pyproject.toml",
+            '[tool.pytest_env]\nenv_files = [".env"]\nenv_files_skip_if_set = true\n',
+            id="toml",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    ("env", "env_file_content", "expected"),
+    [
+        pytest.param(
+            {"DB_HOST": "ci-db.internal"},
+            "DB_HOST=localhost\nDATABASE_URL=postgres://${DB_HOST}/app\n",
+            {"DB_HOST": "ci-db.internal", "DATABASE_URL": "postgres://ci-db.internal/app"},
+            id="reference to kept value",
+        ),
+        pytest.param(
+            {},
+            "DB_HOST=localhost\nDATABASE_URL=postgres://${DB_HOST}/app\n",
+            {"DB_HOST": "localhost", "DATABASE_URL": "postgres://localhost/app"},
+            id="reference to value set by file",
+        ),
+        pytest.param(
+            {},
+            "DATABASE_URL=postgres://${MISSING:-fallback}/app\n",
+            {"DATABASE_URL": "postgres://fallback/app"},
+            id="reference with default",
+        ),
+    ],
+)
+def test_env_files_skip_if_set_expands_kept_value(
+    pytester: pytest.Pytester,
+    mocker: MockerFixture,
+    config_name: str,
+    config: str,
+    env: dict[str, str],
+    env_file_content: str,
+    expected: dict[str, str],
+) -> None:
+    (pytester.path / config_name).write_text(config, encoding="utf-8")
+    (pytester.path / ".env").write_text(env_file_content, encoding="utf-8")
+    pytester.makepyfile(
+        test_kept=dedent(f"""\
+            import os
+
+            def test_kept() -> None:
+                assert {{key: os.environ.get(key) for key in {tuple(expected)!r}}} == {expected!r}
+        """),
+    )
+    mocker.patch.dict(
+        os.environ,
+        {**env, "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"},
+        clear=True,
+    )
+    pytester.runpytest().assert_outcomes(passed=1)
 
 
 def test_verbose_envfile_without_config(pytester: pytest.Pytester, mocker: MockerFixture) -> None:
