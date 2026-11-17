@@ -50,10 +50,10 @@ An attacker who controls any of these already has what pytest-env could give the
 
 ## Untrusted inputs
 
-| Input                     | Comes from                                          | What pytest-env guarantees                                                                                                         |
-| ------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Variable values in output | Secrets placed in `.env` files or the configuration | Not printed unless `--pytest-env-verbose` is given.                                                                                |
-| `.env` names              | Configuration and `--envfile`                       | Resolved against the rootdir and never searched for elsewhere; a missing `--envfile` raises, a missing configured file is skipped. |
+| Input                     | Comes from                                          | What pytest-env guarantees                                                                                                                                                                                                 |
+| ------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Variable values in output | Secrets placed in `.env` files or the configuration | Not printed unless `--pytest-env-verbose` is given.                                                                                                                                                                        |
+| `.env` names              | Configuration and `--envfile`                       | Configured names resolve against the rootdir, `--envfile` names against the invocation directory, then the rootdir; neither is searched for elsewhere. A missing `--envfile` raises, a missing configured file is skipped. |
 
 ## Threats and controls
 

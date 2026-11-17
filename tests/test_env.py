@@ -685,6 +685,47 @@ def test_envfile_cli_missing_file(pytester: pytest.Pytester, cli_arg: str, mocke
     assert any(f"Environment file not found: {error_file}" in line for line in result.errlines)
 
 
+def test_envfile_cli_separate_arg_resolves_from_invocation_dir(
+    pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
+    (pytester.path / "ci.env").write_text("WHICH=too-high", encoding="utf-8")
+    work: Final[Path] = pytester.path / "work"
+    project: Final[Path] = work / "project"
+    project.mkdir(parents=True)
+    (work / "ci.env").write_text("WHICH=named", encoding="utf-8")
+    (project / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    (project / "test_which.py").write_text(
+        'import os\ndef test_which() -> None:\n    assert os.environ["WHICH"] == "named"\n', encoding="utf-8"
+    )
+
+    mocker.patch.dict(
+        os.environ,
+        {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"},
+        clear=True,
+    )
+    monkeypatch.chdir(project)
+    pytester.runpytest("--envfile", "../ci.env").assert_outcomes(passed=1)
+
+
+def test_envfile_cli_falls_back_to_rootdir(
+    pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
+    (pytester.path / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
+    (pytester.path / "root.env").write_text("WHICH=root", encoding="utf-8")
+    sub: Final[Path] = pytester.mkdir("sub")
+    (sub / "test_which.py").write_text(
+        'import os\ndef test_which() -> None:\n    assert os.environ["WHICH"] == "root"\n', encoding="utf-8"
+    )
+
+    mocker.patch.dict(
+        os.environ,
+        {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"},
+        clear=True,
+    )
+    monkeypatch.chdir(sub)
+    pytester.runpytest("--envfile=root.env").assert_outcomes(passed=1)
+
+
 @pytest.mark.parametrize(
     "config_name",
     [
