@@ -90,7 +90,7 @@ def _find_toml_config(early_config: pytest.Config) -> Path | None:
     for current_path in [start_path, *start_path.parents]:
         for toml_name in ("pytest.toml", ".pytest.toml", "pyproject.toml"):
             toml_file = current_path / toml_name
-            if toml_file.exists() and _has_env_section(toml_file):
+            if toml_file.is_file() and _has_env_section(toml_file):
                 return toml_file
     return None
 
