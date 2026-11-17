@@ -79,12 +79,7 @@ def pytest_load_initial_conftests(
 
 def _find_toml_config(early_config: pytest.Config) -> Path | None:
     # Find TOML config file by checking inipath first, then walking up the tree.
-    if (
-        early_config.inipath
-        and early_config.inipath.suffix == ".toml"
-        and early_config.inipath.name in {"pytest.toml", ".pytest.toml", "pyproject.toml"}
-        and _has_env_section(early_config.inipath)
-    ):
+    if early_config.inipath and early_config.inipath.suffix == ".toml" and _has_env_section(early_config.inipath):
         return early_config.inipath
 
     start_path = early_config.inipath.parent if early_config.inipath is not None else early_config.rootpath

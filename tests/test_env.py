@@ -797,6 +797,30 @@ def test_empty_env_section_stops_discovery(
     assert result.ret == pytest.ExitCode.OK
 
 
+@pytest.mark.parametrize(
+    "ci_toml",
+    [
+        pytest.param('[pytest_env]\nMAGIC = "ci"\n', id="entries"),
+        pytest.param('[pytest_env]\nenv_files = [".env"]\n', id="env-files"),
+    ],
+)
+def test_custom_named_toml_selected_with_c(pytester: pytest.Pytester, mocker: MockerFixture, ci_toml: str) -> None:
+    mocker.patch.dict(
+        os.environ,
+        {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"},
+        clear=True,
+    )
+    (pytester.path / "pyproject.toml").write_text('[tool.pytest_env]\nMAGIC = "dev"\n', encoding="utf-8")
+    (pytester.path / "ci.toml").write_text(ci_toml, encoding="utf-8")
+    (pytester.path / ".env").write_text("MAGIC=ci\n", encoding="utf-8")
+    (pytester.path / "test_magic.py").write_text(
+        'import os\ndef test_env() -> None:\n    assert os.environ["MAGIC"] == "ci"\n', encoding="utf-8"
+    )
+    result: Final[pytest.RunResult] = pytester.runpytest("-c", "ci.toml")
+    result.assert_outcomes(passed=1)
+    assert result.ret == pytest.ExitCode.OK
+
+
 @pytest.fixture
 def child(pytester: pytest.Pytester, mocker: MockerFixture) -> Path:
     mocker.patch.dict(
