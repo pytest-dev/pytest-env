@@ -97,7 +97,8 @@ pytest --envfile .env.local           # ignore configured env_files, load only t
 pytest --envfile +.env.override       # load configured env_files first, then this file on top
 ```
 
-To keep existing environment variables (including with `--envfile`), set `env_files_skip_if_set = true`:
+To keep existing environment variables (including with `--envfile`), set `env_files_skip_if_set = true`. A `${VAR}`
+reference in a `.env` file then expands to the kept value:
 
 ```toml
 [tool.pytest_env]
@@ -128,7 +129,8 @@ TEMP_VAR = { unset = true }
 
 `transform` expands `{VAR}` placeholders using existing environment variables. `skip_if_set` leaves the variable
 unchanged when it already exists. For `.env` files, use `env_files_skip_if_set = true`. `unset` removes it entirely
-(different from setting to empty string).
+(different from setting to empty string). When an entry combines `skip_if_set` with `unset`, an existing variable is
+kept.
 
 ### Set different environments for test suites
 
@@ -161,6 +163,8 @@ CONDITIONAL = { value = "default", skip_if_set = true }
 REMOVED = { unset = true }
 ```
 
+A TOML file with another name selected with `-c` is read like `pytest.toml`, from its `[pytest_env]` table.
+
 Each key is the environment variable name. Values can be plain values (cast to string) or inline tables with the
 following keys:
 
@@ -170,6 +174,10 @@ following keys:
 | `transform`   | bool   | Expand `{VAR}` references in the value using existing environment variables. |
 | `skip_if_set` | bool   | Only set the variable if it is not already defined.                          |
 | `unset`       | bool   | Remove the variable from the environment (ignores `value`).                  |
+
+A table with any other key, a flag that is not a boolean, or neither `value` nor `unset = true` stops pytest with a
+usage error that names the entry. A dotted name must be quoted, as in `"DATABASE.HOST" = "x"`: unquoted
+`DATABASE.HOST = "x"` creates a `DATABASE` table instead.
 
 ### INI configuration format
 
@@ -215,7 +223,8 @@ Prefix flags modify behavior. Flags are case-insensitive and can be combined in 
 | `R:` | Raw -- skip `{VAR}` expansion (INI expands by default, unlike TOML). |
 | `U:` | Unset -- remove the variable from the environment entirely.          |
 
-In INI format variable expansion is enabled by default. In TOML format it requires `transform = true`.
+In INI format variable expansion is enabled by default. In TOML format it requires `transform = true`. When an entry
+combines `D:` with `U:`, an existing variable is kept.
 
 ### `.env` file format
 
@@ -246,9 +255,10 @@ MESSAGE="hello\nworld"
 API_KEY=${FALLBACK_KEY:-default_key}
 ```
 
-Missing `.env` files from configuration are silently skipped. Paths are resolved relative to the project root. An
-explicit `env_files = []` in native TOML configuration disables INI-style `env_files` fallback; omitting the key
-preserves that fallback. CLI `--envfile` paths still load in either case.
+Missing `.env` files from configuration are silently skipped. Configured `env_files` are resolved relative to the
+project root. An explicit `env_files = []` in native TOML configuration disables INI-style `env_files` fallback;
+omitting the key preserves that fallback. CLI `--envfile` paths still load in either case, resolved relative to the
+directory pytest was invoked from, then the project root.
 
 ### CLI options
 
@@ -262,7 +272,8 @@ Override or extend configuration-based `env_files` at runtime.
 Variables from the CLI file override those from configuration files.
 
 Unlike configuration-based `env_files`, CLI-specified files must exist. Missing files raise `FileNotFoundError`. Paths
-are resolved relative to the project root.
+are resolved relative to the directory pytest was invoked from, then the project root. Configured `env_files` are
+resolved relative to the project root.
 
 #### `--pytest-env-verbose`
 
@@ -293,16 +304,18 @@ When multiple sources define the same variable, precedence applies in this order
 
 When multiple configuration formats are present, TOML native format (`[pytest_env]` / `[tool.pytest_env]`) takes
 precedence over INI format. Among TOML files, the first file with a `pytest_env` section wins, checked in order:
-`pytest.toml`, `.pytest.toml`, `pyproject.toml`. If no TOML file contains `pytest_env`, the plugin falls back to
-INI-style `env` configuration.
+`pytest.toml`, `.pytest.toml`, `pyproject.toml`. A TOML file with another name selected with `-c` is checked first and
+is read like `pytest.toml`. If no TOML file contains `pytest_env`, the plugin falls back to INI-style `env`
+configuration.
 
 ### File discovery
 
 The plugin walks up the directory tree starting from pytest's resolved configuration directory. For each directory, it
 checks `pytest.toml`, `.pytest.toml`, and `pyproject.toml` in order, stopping at the first file containing a
 `pytest_env` section. Only regular files are considered, so directories and other entries with these names are skipped.
-This means subdirectory configurations take precedence over parent configurations, allowing different settings for
-integration tests versus unit tests.
+A TOML file with another name selected with `-c` is checked before the walk and is read like `pytest.toml`. This means
+subdirectory configurations take precedence over parent configurations, allowing different settings for integration
+tests versus unit tests.
 
 ### Choosing a configuration format
 

@@ -6,12 +6,13 @@ SECURITY.md wins and we fix this file.
 
 ## How pytest-env works
 
-Before tests are collected, pytest-env reads its entries from the `[pytest_env]` table of `pytest.toml`, `.pytest.toml`
-or `pyproject.toml`, found in the pytest configuration's directory or the nearest parent with such a table, or else from
-the `env` option of the INI configuration. It loads the `.env` files that `env_files` or `--envfile` name, resolved
-against the rootdir and parsed with python-dotenv, then sets, unsets or keeps each variable, expanding `{VAR}`
-references in INI entries not marked `R:` and in TOML entries that set `transform`. With `--pytest-env-verbose` it
-prints each assignment, values included, in the report header.
+Before tests are collected, pytest-env reads its entries from the `[pytest_env]` table of a TOML file selected with `-c`
+under any name, or else from the `[pytest_env]` table of `pytest.toml`, `.pytest.toml` or `pyproject.toml`, found in the
+pytest configuration's directory or the nearest parent with such a table, or else from the `env` option of the INI
+configuration. It loads the `.env` files that `env_files` or `--envfile` name, resolved against the rootdir and parsed
+with python-dotenv, then sets, unsets or keeps each variable, expanding `{VAR}` references in INI entries not marked
+`R:` and in TOML entries that set `transform`. With `--pytest-env-verbose` it prints each assignment, values included,
+in the report header.
 
 ```mermaid
 flowchart LR
@@ -50,10 +51,10 @@ An attacker who controls any of these already has what pytest-env could give the
 
 ## Untrusted inputs
 
-| Input                     | Comes from                                          | What pytest-env guarantees                                                                                                         |
-| ------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Variable values in output | Secrets placed in `.env` files or the configuration | Not printed unless `--pytest-env-verbose` is given.                                                                                |
-| `.env` names              | Configuration and `--envfile`                       | Resolved against the rootdir and never searched for elsewhere; a missing `--envfile` raises, a missing configured file is skipped. |
+| Input                     | Comes from                                          | What pytest-env guarantees                                                                                                                                                                                                 |
+| ------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Variable values in output | Secrets placed in `.env` files or the configuration | Not printed unless `--pytest-env-verbose` is given.                                                                                                                                                                        |
+| `.env` names              | Configuration and `--envfile`                       | Configured names resolve against the rootdir, `--envfile` names against the invocation directory, then the rootdir; neither is searched for elsewhere. A missing `--envfile` raises, a missing configured file is skipped. |
 
 ## Threats and controls
 
