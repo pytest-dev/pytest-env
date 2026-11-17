@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Final, TypeAlias
 
 import pytest
 from dotenv import dotenv_values
+from dotenv.variables import parse_variables
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
@@ -78,12 +79,7 @@ def pytest_load_initial_conftests(
 
 def _find_toml_config(early_config: pytest.Config) -> Path | None:
     # Find TOML config file by checking inipath first, then walking up the tree.
-    if (
-        early_config.inipath
-        and early_config.inipath.suffix == ".toml"
-        and early_config.inipath.name in {"pytest.toml", ".pytest.toml", "pyproject.toml"}
-        and _has_env_section(early_config.inipath)
-    ):
+    if early_config.inipath and early_config.inipath.suffix == ".toml" and _has_env_section(early_config.inipath):
         return early_config.inipath
 
     start_path = early_config.inipath.parent if early_config.inipath is not None else early_config.rootpath
@@ -145,12 +141,31 @@ def _parse_toml_config(config: dict[str, _TomlValue]) -> Generator[Entry, None, 
         if key == "env_files_skip_if_set" and isinstance(entry, bool):
             continue
         if isinstance(entry, dict):
-            unset = bool(entry.get("unset"))
-            value = str(entry.get("value", "")) if not unset else ""
-            transform, skip_if_set = bool(entry.get("transform")), bool(entry.get("skip_if_set"))
+            yield _parse_toml_table(key, entry)
         else:
-            value, transform, skip_if_set, unset = str(entry), False, False, False
-        yield Entry(key=key, value=value, transform=transform, skip_if_set=skip_if_set, unset=unset)
+            yield Entry(key=key, value=str(entry), transform=False, skip_if_set=False, unset=False)
+
+
+def _parse_toml_table(key: str, entry: dict[str, _TomlValue]) -> Entry:
+    if unknown := sorted(entry.keys() - {"value", "transform", "skip_if_set", "unset"}):
+        msg = f"pytest-env: entry {key!r} has unknown key {unknown[0]!r}"
+        raise pytest.UsageError(msg)
+    for flag in ("unset", "transform", "skip_if_set"):
+        if flag in entry and not isinstance(entry[flag], bool):
+            msg = f"pytest-env: entry {key!r}: {flag} must be true or false"
+            raise pytest.UsageError(msg)
+    unset = bool(entry.get("unset"))
+    if not unset and "value" not in entry:
+        msg = f"pytest-env: entry {key!r} needs a value or unset = true"
+        raise pytest.UsageError(msg)
+    value = "" if unset else str(entry["value"])
+    return Entry(
+        key=key,
+        value=value,
+        transform=bool(entry.get("transform")),
+        skip_if_set=bool(entry.get("skip_if_set")),
+        unset=unset,
+    )
 
 
 @dataclass
@@ -174,7 +189,9 @@ def _load_env_files(early_config: pytest.Config, env_files: list[str] | None) ->
         return
     extend = cli_envfile.startswith("+")
     name = cli_envfile[1:] if extend else cli_envfile
-    if not (resolved := early_config.rootpath / name).is_file():
+    # pytest resolves the rootdir before --envfile is registered, so a separate PATH value may have moved it.
+    candidates = (early_config.invocation_params.dir / name, early_config.rootpath / name)
+    if not (resolved := next((path for path in candidates if path.is_file()), None)):
         msg = f"Environment file not found: {name}"
         raise FileNotFoundError(msg)
     if extend:
@@ -195,28 +212,30 @@ def _apply_env_file(
     *,
     skip_if_set: bool,
 ) -> None:
-    for key, value in dotenv_values(env_file).items():
+    # python-dotenv expands references before the skip rule runs, so a reference would see a skipped assignment.
+    for key, value in dotenv_values(env_file, interpolate=not skip_if_set).items():
         if value is None:
             continue
         if skip_if_set and (env_key := key.upper() if os.name == "nt" else key) in preexisting:
             if actions is not None:
                 actions.append(("SKIP", key, preexisting[env_key], str(env_file)))
         else:
-            os.environ[key] = value
+            final = "".join(atom.resolve(os.environ) for atom in parse_variables(value)) if skip_if_set else value
+            os.environ[key] = final
             if actions is not None:
-                actions.append(("SET", key, value, str(env_file)))
+                actions.append(("SET", key, final, str(env_file)))
 
 
 def _apply_entries(early_config: pytest.Config, actions: list[tuple[str, str, str, str]] | None) -> None:
     source = _config_source(early_config) if actions is not None else ""
     for entry in _load_values(early_config):
-        if entry.unset:
+        if entry.skip_if_set and entry.key in os.environ:
+            if actions is not None:
+                actions.append(("SKIP", entry.key, os.environ[entry.key], source))
+        elif entry.unset:
             os.environ.pop(entry.key, None)
             if actions is not None:
                 actions.append(("UNSET", entry.key, "", source))
-        elif entry.skip_if_set and entry.key in os.environ:
-            if actions is not None:
-                actions.append(("SKIP", entry.key, os.environ[entry.key], source))
         else:
             final = entry.value.format(**os.environ) if entry.transform else entry.value
             os.environ[entry.key] = final
