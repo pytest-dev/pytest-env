@@ -224,7 +224,8 @@ Prefix flags modify behavior. Flags are case-insensitive and can be combined in 
 | `U:` | Unset -- remove the variable from the environment entirely.          |
 
 In INI format variable expansion is enabled by default. In TOML format it requires `transform = true`. When an entry
-combines `D:` with `U:`, an existing variable is kept.
+combines `D:` with `U:`, an existing variable is kept. A malformed `{VAR}` template stops pytest with a usage error that
+names the entry.
 
 ### `.env` file format
 

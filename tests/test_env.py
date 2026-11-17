@@ -603,6 +603,39 @@ def test_env_via_pyproject_toml_bad(pytester: pytest.Pytester, toml_name: str) -
 
 
 @pytest.mark.parametrize(
+    ("config_file", "config_content"),
+    [
+        pytest.param("pytest.ini", "[pytest]\nenv = MAGIC={PLANET:-{SECRET}}", id="ini"),
+        pytest.param(
+            "pyproject.toml",
+            '[tool.pytest_env]\nMAGIC = { value = "{PLANET:-{SECRET}}", transform = true }',
+            id="native toml",
+        ),
+    ],
+)
+def test_invalid_template_is_usage_error_without_value(
+    pytester: pytest.Pytester, config_file: str, config_content: str, mocker: MockerFixture
+) -> None:
+    (pytester.path / config_file).write_text(config_content, encoding="utf-8")
+    pytester.makepyfile(test_it="def test_it() -> None:\n    pass")
+
+    new_env = {
+        "PLANET": "world",
+        "SECRET": "hunter2",
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_PLUGINS": "pytest_env.plugin",
+    }
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest()
+
+    assert (result.ret, result.errlines) == (
+        pytest.ExitCode.USAGE_ERROR,
+        ["ERROR: pytest-env: invalid {VAR} template in the value of 'MAGIC'", ""],
+    )
+    assert "hunter2" not in result.stdout.str() + result.stderr.str()
+
+
+@pytest.mark.parametrize(
     ("entry", "message"),
     [
         pytest.param(
