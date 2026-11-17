@@ -160,6 +160,41 @@ def test_env_via_pytest(
 
 
 @pytest.mark.parametrize(
+    ("env", "message", "hidden"),
+    [
+        pytest.param(
+            ["DR:API_TOKEN=secret-value"],
+            "pytest-env: env entry 1: unknown flag 'DR', expected D, R or U",
+            "secret-value",
+            id="unknown-flag-hides-value",
+        ),
+        pytest.param(
+            ["DB_HOST: test-db"],
+            "pytest-env: env entry 1: unknown flag 'DB_HOST', expected D, R or U",
+            "DB_HOST: test-db",
+            id="unknown-flag-without-equals",
+        ),
+        pytest.param(["=value"], "pytest-env: env entry 1: missing variable name", "=value", id="missing-name"),
+        pytest.param(["D:"], "pytest-env: env entry 1: missing variable name", "D:", id="flag-without-name"),
+        pytest.param(
+            ["GOOD=1", "BAD: x"],
+            "pytest-env: env entry 2: unknown flag 'BAD', expected D, R or U",
+            "BAD: x",
+            id="second-entry-reported",
+        ),
+    ],
+)
+def test_env_via_ini_invalid_line(pytester: pytest.Pytester, env: list[str], message: str, hidden: str) -> None:
+    (pytester.path / "pytest.ini").write_text(
+        "[pytest]\nenv =\n" + "\n".join(f"    {line}" for line in env), encoding="utf-8"
+    )
+
+    result = pytester.runpytest()
+    assert (result.ret, result.errlines) == (pytest.ExitCode.USAGE_ERROR, [f"ERROR: {message}", ""])
+    assert hidden not in result.stdout.str() + result.stderr.str()
+
+
+@pytest.mark.parametrize(
     ("env", "files", "expected_env", "test_dir"),
     [
         pytest.param(

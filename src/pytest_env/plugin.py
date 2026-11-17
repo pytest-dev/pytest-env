@@ -251,19 +251,25 @@ def _load_values(early_config: pytest.Config) -> Iterator[Entry]:
         yield from _load_toml_config(toml_config).entries
         return
 
-    for line in early_config.getini("env"):
+    for index, line in enumerate(early_config.getini("env"), start=1):
         # INI lines e.g. D:R:NAME=VAL has two flags (R and D), NAME key, and VAL value
         parts = line.partition("=")
         ini_key_parts = parts[0].split(":")
         flags = {k.strip().upper() for k in ini_key_parts[:-1]}
+        if unknown := flags - {"D", "R", "U"}:
+            # The value may be a secret, so the message names only the flag.
+            msg = f"pytest-env: env entry {index}: unknown flag {min(unknown)!r}, expected D, R or U"
+            raise pytest.UsageError(msg)
+        key = ini_key_parts[-1].strip()
+        if not key:
+            msg = f"pytest-env: env entry {index}: missing variable name"
+            raise pytest.UsageError(msg)
         # R: is a way to designate whether to use raw value -> perform no transformation of the value
         transform = "R" not in flags
         # D: is a way to mark the value to be set only if it does not exist yet
         skip_if_set = "D" in flags
         # U: is a way to unset (remove) an environment variable
-        unset = "U" in flags
-        key = ini_key_parts[-1].strip()
-        yield Entry(key=key, value=parts[2].strip(), transform=transform, skip_if_set=skip_if_set, unset=unset)
+        yield Entry(key=key, value=parts[2].strip(), transform=transform, skip_if_set=skip_if_set, unset="U" in flags)
 
 
 def _expand_value(entry: Entry) -> str:
