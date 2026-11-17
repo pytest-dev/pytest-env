@@ -115,6 +115,24 @@ _TEST_NAME_PATTERN: Final[re.Pattern[str]] = re.compile(r"\W|^(?=\d)")
             {"MAGIC": "beta"},
             id="U flag then set - var is set",
         ),
+        pytest.param(
+            {"KEEP": "caller-value"},
+            "[pytest]\nenv = D:U:KEEP",
+            {"KEEP": "caller-value"},
+            id="D and U flags - existing var kept",
+        ),
+        pytest.param(
+            {"KEEP": "caller-value"},
+            "[pytest]\nenv = U:D:KEEP",
+            {"KEEP": "caller-value"},
+            id="U and D flags reversed - existing var kept",
+        ),
+        pytest.param(
+            {},
+            "[pytest]\nenv = D:U:KEEP",
+            {"KEEP": None},
+            id="D and U flags - non-existing var stays unset",
+        ),
     ],
 )
 def test_env_via_pytest(
@@ -277,6 +295,20 @@ def test_env_via_pytest(
             {"MAGIC": None},
             ".",
             id="pyproject toml unset non-existing",
+        ),
+        pytest.param(
+            {"KEEP": "caller-value"},
+            {"pyproject.toml": "[tool.pytest_env]\nKEEP = {unset = true, skip_if_set = true}"},
+            {"KEEP": "caller-value"},
+            ".",
+            id="pyproject toml unset and skip_if_set - existing var kept",
+        ),
+        pytest.param(
+            {},
+            {"pyproject.toml": "[tool.pytest_env]\nKEEP = {unset = true, skip_if_set = true}"},
+            {"KEEP": None},
+            ".",
+            id="pyproject toml unset and skip_if_set - non-existing var stays unset",
         ),
         pytest.param(
             {},

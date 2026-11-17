@@ -205,13 +205,13 @@ def _apply_env_file(
 def _apply_entries(early_config: pytest.Config, actions: list[tuple[str, str, str, str]] | None) -> None:
     source = _config_source(early_config) if actions is not None else ""
     for entry in _load_values(early_config):
-        if entry.unset:
+        if entry.skip_if_set and entry.key in os.environ:
+            if actions is not None:
+                actions.append(("SKIP", entry.key, os.environ[entry.key], source))
+        elif entry.unset:
             os.environ.pop(entry.key, None)
             if actions is not None:
                 actions.append(("UNSET", entry.key, "", source))
-        elif entry.skip_if_set and entry.key in os.environ:
-            if actions is not None:
-                actions.append(("SKIP", entry.key, os.environ[entry.key], source))
         else:
             final = entry.value.format(**os.environ) if entry.transform else entry.value
             os.environ[entry.key] = final

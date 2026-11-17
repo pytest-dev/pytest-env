@@ -157,6 +157,25 @@ def test_verbose_shows_skip(pytester: pytest.Pytester, env_test_template: str, m
     result.stdout.fnmatch_lines(["*SKIP*EXISTING=original*"])
 
 
+def test_verbose_shows_skip_for_unset_with_skip_if_set(
+    pytester: pytest.Pytester, env_test_template: str, mocker: MockerFixture
+) -> None:
+    (pytester.path / "test_it.py").write_text(env_test_template, encoding="utf-8")
+    (pytester.path / "pytest.ini").write_text("[pytest]\nenv = D:U:KEEP", encoding="utf-8")
+
+    new_env = {
+        "KEEP": "caller-value",
+        "_TEST_ENV": repr({"KEEP": "caller-value"}),
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_PLUGINS": "pytest_env.plugin",
+    }
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    result = pytester.runpytest("--pytest-env-verbose")
+
+    result.assert_outcomes(passed=1)
+    result.stdout.fnmatch_lines(["*SKIP  KEEP=caller-value  (from*pytest.ini*"])
+
+
 def test_verbose_shows_unset(pytester: pytest.Pytester, env_test_template: str, mocker: MockerFixture) -> None:
     (pytester.path / "test_it.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / "pytest.ini").write_text("[pytest]\nenv = U:TO_REMOVE", encoding="utf-8")
