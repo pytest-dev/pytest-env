@@ -2,6 +2,50 @@
 
 <!-- towncrier release notes start -->
 
+<a name="release-1-8-6"></a>
+
+## 1.8.6 (2026-11-17)
+
+<a name="release-1-8-6-fixed"></a>
+
+### Fixed
+
+- Escape non-printable characters in the `--pytest-env-verbose` header so each assignment stays on one line
+  ([#331](https://github.com/pytest-dev/pytest-env/pull/331)) by [@gaborbernat](https://github.com/gaborbernat).
+- Expand `${VAR}` in `.env` files with the kept value when `env_files_skip_if_set` skips the file's own assignment
+  ([#340](https://github.com/pytest-dev/pytest-env/pull/340)) by [@gaborbernat](https://github.com/gaborbernat).
+- Keep an existing variable when an entry combines `skip_if_set` (`D:`) with `unset` (`U:`)
+  ([#337](https://github.com/pytest-dev/pytest-env/pull/337)) by [@gaborbernat](https://github.com/gaborbernat).
+- Name the file when a TOML file found during discovery does not parse, and skip files whose `pytest_env` is not a table
+  ([#333](https://github.com/pytest-dev/pytest-env/pull/333)) by [@gaborbernat](https://github.com/gaborbernat).
+- Raise `FileNotFoundError` for an empty `--envfile` value instead of loading the configured env files
+  ([#330](https://github.com/pytest-dev/pytest-env/pull/330)) by [@gaborbernat](https://github.com/gaborbernat).
+- Read `[pytest_env]` from a custom-named TOML file selected with `-c` instead of a sibling or parent file
+  ([#339](https://github.com/pytest-dev/pytest-env/pull/339)) by [@gaborbernat](https://github.com/gaborbernat).
+- Reject INI `env` lines with an unknown flag or no variable name instead of applying them
+  ([#334](https://github.com/pytest-dev/pytest-env/pull/334)) by [@gaborbernat](https://github.com/gaborbernat).
+- Reject native TOML entry tables with unknown keys, non-boolean flags or no value instead of applying them
+  ([#338](https://github.com/pytest-dev/pytest-env/pull/338)) by [@gaborbernat](https://github.com/gaborbernat).
+- Resolve `--envfile` against the invocation directory before the project root, so `--envfile ../file` loads the file it
+  names ([#332](https://github.com/pytest-dev/pytest-env/pull/332)) by [@gaborbernat](https://github.com/gaborbernat).
+- Skip directories and other non-regular entries named like a TOML configuration file during discovery
+  ([#336](https://github.com/pytest-dev/pytest-env/pull/336)) by [@gaborbernat](https://github.com/gaborbernat).
+
+<a name="release-1-8-6-security"></a>
+
+### Security
+
+- Report an invalid `{VAR}` template as a usage error that names the entry instead of printing an environment value
+  ([#335](https://github.com/pytest-dev/pytest-env/pull/335)) by [@gaborbernat](https://github.com/gaborbernat).
+
+<a name="release-1-8-6-packaging"></a>
+
+### Packaging
+
+- Every wheel now carries a [PEP 770](https://peps.python.org/pep-0770/) CycloneDX SBOM in its `.dist-info/sboms`
+  directory, written at build time by [python-sbom](https://github.com/tox-dev/python-sbom)
+  ([#309](https://github.com/pytest-dev/pytest-env/pull/309)) by [@gaborbernat](https://github.com/gaborbernat).
+
 <a name="release-1-8-5"></a>
 
 ## 1.8.5 (2026-11-04)
