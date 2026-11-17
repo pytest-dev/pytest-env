@@ -301,7 +301,8 @@ INI-style `env` configuration.
 The plugin walks up the directory tree starting from pytest's resolved configuration directory. For each directory, it
 checks `pytest.toml`, `.pytest.toml`, and `pyproject.toml` in order, stopping at the first file containing a
 `pytest_env` section. This means subdirectory configurations take precedence over parent configurations, allowing
-different settings for integration tests versus unit tests.
+different settings for integration tests versus unit tests. A file on that path that is not valid TOML stops pytest with
+a usage error naming the file.
 
 ### Choosing a configuration format
 
