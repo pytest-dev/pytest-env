@@ -667,6 +667,7 @@ def test_envfile_cli_skip_if_set(pytester: pytest.Pytester, env_test_template: s
     [
         pytest.param("nonexistent.env", id="missing file override"),
         pytest.param("+nonexistent.env", id="missing file extend"),
+        pytest.param("", id="empty value"),
     ],
 )
 def test_envfile_cli_missing_file(pytester: pytest.Pytester, cli_arg: str, mocker: MockerFixture) -> None:
