@@ -571,6 +571,35 @@ def test_env_via_pyproject_toml_bad(pytester: pytest.Pytester, toml_name: str) -
 
 
 @pytest.mark.parametrize(
+    ("entry", "message"),
+    [
+        pytest.param(
+            'MAGIC = { value = "secret-value", unset = "false" }',
+            "entry 'MAGIC': unset must be true or false",
+            id="unset-string",
+        ),
+        pytest.param(
+            'MAGIC = { value = "x", skip_if_set = 1 }',
+            "entry 'MAGIC': skip_if_set must be true or false",
+            id="skip-if-set-integer",
+        ),
+        pytest.param('MAGIC = { val = "x" }', "entry 'MAGIC' has unknown key 'val'", id="unknown-key"),
+        pytest.param('MAGIC.HOST = "x"', "entry 'MAGIC' has unknown key 'HOST'", id="nested-table"),
+        pytest.param(
+            "MAGIC = { transform = true }",
+            "entry 'MAGIC' needs a value or unset = true",
+            id="flag-without-value",
+        ),
+    ],
+)
+def test_env_via_toml_bad_entry(pytester: pytest.Pytester, entry: str, message: str) -> None:
+    (pytester.path / "pyproject.toml").write_text(f"[tool.pytest_env]\n{entry}\n", encoding="utf-8")
+
+    result = pytester.runpytest()
+    assert (result.ret, result.errlines) == (pytest.ExitCode.USAGE_ERROR, [f"ERROR: pytest-env: {message}", ""])
+
+
+@pytest.mark.parametrize(
     ("files", "cli_arg", "expected_env"),
     [
         pytest.param(
