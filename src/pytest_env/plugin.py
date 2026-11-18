@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "tomllib",
+]
+
 import os
 import tomllib
 from dataclasses import dataclass
@@ -9,8 +13,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Final, TypeAlias
 
 import pytest
-from dotenv import dotenv_values
-from dotenv.variables import parse_variables
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
@@ -212,6 +214,9 @@ def _apply_env_file(
     *,
     skip_if_set: bool,
 ) -> None:
+    from dotenv import dotenv_values  # ruff: ignore[import-outside-top-level]  # only needed for env files
+    from dotenv.variables import parse_variables  # ruff: ignore[import-outside-top-level]  # only needed for env files
+
     # python-dotenv expands references before the skip rule runs, so a reference would see a skipped assignment.
     for key, value in dotenv_values(env_file, interpolate=not skip_if_set).items():
         if value is None:
