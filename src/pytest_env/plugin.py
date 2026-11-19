@@ -185,10 +185,11 @@ class Entry:
 
 def _get_option(config: pytest.Config, name: str, kind: type[_Option]) -> _Option:
     try:
-        return kind(config.getini(name))
+        return config.getini(name)
     except (pytest.UsageError, TypeError, ValueError):
         # pytest includes the rejected value in its type diagnostic.
-        msg = f"pytest-env: invalid {name} option, expected {kind.__name__}"
+        expected = "true or false" if kind is bool else "a list of strings"
+        msg = f"pytest-env: invalid {name} option, expected {expected}"
         raise pytest.UsageError(msg) from None
 
 
