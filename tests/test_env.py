@@ -815,6 +815,33 @@ def test_envfile_cli_missing_file(pytester: pytest.Pytester, cli_arg: str, mocke
     assert any(f"Environment file not found: {error_file}" in line for line in result.errlines)
 
 
+@pytest.mark.parametrize("args", [pytest.param((), id="configured"), pytest.param(("--envfile=data.env",), id="cli")])
+def test_envfile_rejects_directory(pytester: pytest.Pytester, args: tuple[str, ...]) -> None:
+    path = pytester.path / "data.env"
+    path.mkdir()
+    pytester.makeini("[pytest]\nenv_files = data.env")
+
+    result = pytester.runpytest(*args)
+
+    assert (result.ret, result.errlines) == (
+        pytest.ExitCode.USAGE_ERROR,
+        [f"ERROR: Environment file is not a regular file: {path}", ""],
+    )
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="POSIX FIFO")
+def test_envfile_rejects_fifo(pytester: pytest.Pytester) -> None:  # pragma: win32 no cover
+    path = pytester.path / "stream.env"
+    os.mkfifo(path)
+
+    result = pytester.runpytest("--envfile=stream.env")
+
+    assert (result.ret, result.errlines) == (
+        pytest.ExitCode.USAGE_ERROR,
+        [f"ERROR: Environment file is not a regular file: {path}", ""],
+    )
+
+
 def test_envfile_cli_separate_arg_resolves_from_invocation_dir(
     pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
 ) -> None:

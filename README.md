@@ -259,8 +259,9 @@ MESSAGE="hello\nworld"
 API_KEY=${FALLBACK_KEY:-default_key}
 ```
 
-Missing `.env` files from configuration are silently skipped. Configured `env_files` are resolved relative to the
-project root. An explicit `env_files = []` in native TOML configuration disables INI-style `env_files` fallback;
+Both `env_files` and `--envfile` accept regular files. A directory or named pipe at a selected path stops pytest with a
+usage error. Missing `.env` files from configuration are silently skipped. Configured `env_files` are resolved relative
+to the project root. An explicit `env_files = []` in native TOML configuration disables INI-style `env_files` fallback;
 omitting the key preserves that fallback. CLI `--envfile` paths still load in either case, resolved relative to the
 directory pytest was invoked from, then the project root.
 
