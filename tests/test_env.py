@@ -641,6 +641,10 @@ def test_env_via_pyproject_toml_bad(pytester: pytest.Pytester, toml_name: str) -
     ("config_file", "config_content"),
     [
         pytest.param("pytest.ini", "[pytest]\nenv = MAGIC={PLANET:-{SECRET}}", id="ini"),
+        pytest.param("pytest.ini", "[pytest]\nenv = MAGIC={MISSING}", id="missing-variable"),
+        pytest.param("pytest.ini", "[pytest]\nenv = MAGIC={0}", id="positional-field"),
+        pytest.param("pytest.ini", "[pytest]\nenv = MAGIC={PLANET[name]}", id="invalid-index-type"),
+        pytest.param("pytest.ini", "[pytest]\nenv = MAGIC={PLANET.missing}", id="missing-attribute"),
         pytest.param(
             "pyproject.toml",
             '[tool.pytest_env]\nMAGIC = { value = "{PLANET:-{SECRET}}", transform = true }',
@@ -668,6 +672,19 @@ def test_invalid_template_is_usage_error_without_value(
         ["ERROR: pytest-env: invalid {VAR} template in the value of 'MAGIC'", ""],
     )
     assert "hunter2" not in result.stdout.str() + result.stderr.str()
+
+
+@pytest.mark.parametrize("value", [pytest.param('"true"', id="string"), pytest.param("1", id="integer")])
+def test_native_skip_requires_boolean(pytester: pytest.Pytester, value: str) -> None:
+    config = pytester.path / "pyproject.toml"
+    config.write_text(f"[tool.pytest_env]\nenv_files_skip_if_set = {value}", encoding="utf-8")
+
+    result = pytester.runpytest()
+
+    assert (result.ret, result.errlines) == (
+        pytest.ExitCode.USAGE_ERROR,
+        [f"ERROR: {config}: env_files_skip_if_set must be true or false", ""],
+    )
 
 
 @pytest.mark.parametrize(
@@ -768,6 +785,17 @@ def test_envfile_cli(
     pytester.runpytest("--envfile", cli_arg).assert_outcomes(passed=1)
 
 
+def test_skipped_dotenv_line_warns(pytester: pytest.Pytester) -> None:
+    env_file = pytester.path / ".env"
+    env_file.write_text("MODE=local\n\n  \nbad line here\n# comment\n", encoding="utf-8")
+    pytester.makepyfile(test_mode="import os\ndef test_mode():\n    assert os.environ['MODE'] == 'local'")
+
+    result = pytester.runpytest("--envfile=.env")
+
+    result.assert_outcomes(passed=1, warnings=1)
+    result.stdout.fnmatch_lines([f"*PytestConfigWarning: {env_file}:4: skipped malformed dotenv statement"])
+
+
 def test_envfile_cli_skip_if_set(pytester: pytest.Pytester, env_test_template: str, mocker: MockerFixture) -> None:
     (pytester.path / "test_cli_skip.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / "cli.env").write_text("MAGIC=from_cli", encoding="utf-8")
@@ -813,6 +841,33 @@ def test_envfile_cli_missing_file(pytester: pytest.Pytester, cli_arg: str, mocke
     assert result.ret != 0
     error_file = cli_arg.lstrip("+")
     assert any(f"Environment file not found: {error_file}" in line for line in result.errlines)
+
+
+@pytest.mark.parametrize("args", [pytest.param((), id="configured"), pytest.param(("--envfile=data.env",), id="cli")])
+def test_envfile_rejects_directory(pytester: pytest.Pytester, args: tuple[str, ...]) -> None:
+    path = pytester.path / "data.env"
+    path.mkdir()
+    pytester.makeini("[pytest]\nenv_files = data.env")
+
+    result = pytester.runpytest(*args)
+
+    assert (result.ret, result.errlines) == (
+        pytest.ExitCode.USAGE_ERROR,
+        [f"ERROR: Environment file is not a regular file: {path}", ""],
+    )
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="POSIX FIFO")
+def test_envfile_rejects_fifo(pytester: pytest.Pytester) -> None:  # pragma: win32 no cover
+    path = pytester.path / "stream.env"
+    os.mkfifo(path)
+
+    result = pytester.runpytest("--envfile=stream.env")
+
+    assert (result.ret, result.errlines) == (
+        pytest.ExitCode.USAGE_ERROR,
+        [f"ERROR: Environment file is not a regular file: {path}", ""],
+    )
 
 
 def test_envfile_cli_separate_arg_resolves_from_invocation_dir(
@@ -1231,6 +1286,26 @@ def test_verbose_envfile_without_config(pytester: pytest.Pytester, mocker: Mocke
 
     result.assert_outcomes(passed=1)
     result.stdout.fnmatch_lines(["*pytest-env:", "*SET*MAGIC=from_cli*(from*cli.env*"])
+
+
+@pytest.mark.parametrize(
+    ("name", "value", "expected"),
+    [
+        pytest.param("env", "42", "a list of strings", id="entries"),
+        pytest.param("env", "[42]", "a list of strings", id="entry-type"),
+        pytest.param("env_files", "[42]", "a list of strings", id="files"),
+        pytest.param("env_files_skip_if_set", "42", "true or false", id="skip"),
+    ],
+)
+def test_invalid_option_type(pytester: pytest.Pytester, name: str, value: str, expected: str) -> None:
+    (pytester.path / "pytest.toml").write_text(f"[pytest]\n{name} = {value}\n", encoding="utf-8")
+
+    result = pytester.runpytest()
+
+    assert (result.ret, result.errlines) == (
+        pytest.ExitCode.USAGE_ERROR,
+        [f"ERROR: pytest-env: invalid {name} option, expected {expected}", ""],
+    )
 
 
 @pytest.mark.parametrize(
