@@ -43,7 +43,7 @@ def test_verbose_uses_config_source_without_file(
     result = pytester.runpytest("--pytest-env-verbose", "-o", "env=MAGIC=alpha")
 
     result.assert_outcomes(passed=1)
-    result.stdout.fnmatch_lines(["*SET*MAGIC=alpha*(from config)"])
+    result.stdout.fnmatch_lines(["*SET*MAGIC=alpha*(from -o env)"])
 
 
 def test_verbose_shows_ini_source_when_pyproject_lacks_pytest_env(

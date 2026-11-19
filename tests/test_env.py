@@ -1234,14 +1234,17 @@ def test_verbose_envfile_without_config(pytester: pytest.Pytester, mocker: Mocke
 
 
 @pytest.mark.parametrize(
-    ("name", "contents", "args"),
+    ("name", "contents", "args", "source"),
     [
-        pytest.param("pyproject.toml", '[tool.pytest_env]\n"BAD=NAME" = "x"', (), id="toml-key"),
-        pytest.param("pytest.ini", "[pytest]\nenv = BAD=x\0y", (), id="ini-value"),
-        pytest.param("data.env", "BAD=x\0y", ("--envfile=data.env",), id="dotenv-value"),
+        pytest.param("pyproject.toml", '[tool.pytest_env]\n"BAD=NAME" = "x"', (), "{path}", id="toml-key"),
+        pytest.param("pytest.ini", "[pytest]\nenv = BAD=x\0y", (), "{path}", id="ini-value"),
+        pytest.param("data.env", "BAD=x\0y", ("--envfile=data.env",), "{path}", id="dotenv-value"),
+        pytest.param("pytest.ini", "[pytest]", ("-o", "env=BAD=x\0y"), "-o env", id="override"),
     ],
 )
-def test_rejected_assignment(pytester: pytest.Pytester, name: str, contents: str, args: tuple[str, ...]) -> None:
+def test_rejected_assignment(
+    pytester: pytest.Pytester, name: str, contents: str, args: tuple[str, ...], source: str
+) -> None:
     path = pytester.path / name
     path.write_text(contents, encoding="utf-8")
 
@@ -1249,5 +1252,5 @@ def test_rejected_assignment(pytester: pytest.Pytester, name: str, contents: str
 
     assert (result.ret, result.errlines) == (
         pytest.ExitCode.USAGE_ERROR,
-        [f"ERROR: pytest-env: cannot set environment variable 'BAD' from {path}", ""],
+        [f"ERROR: pytest-env: cannot set environment variable 'BAD' from {source.format(path=path)}", ""],
     )
