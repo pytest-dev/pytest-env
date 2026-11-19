@@ -27,9 +27,13 @@ def test_verbose_shows_set_from_ini(pytester: pytest.Pytester, env_test_template
     result.stdout.fnmatch_lines(["*pytest-env:*", "*SET*MAGIC=alpha*(from*pytest.ini*"])
 
 
-def test_verbose_uses_config_source_without_file(
-    pytester: pytest.Pytester, env_test_template: str, mocker: MockerFixture
+@pytest.mark.parametrize(
+    "ini", [pytest.param("", id="empty-file"), pytest.param("[pytest]\nenv = MAGIC=file", id="file")]
+)
+def test_verbose_names_override(
+    pytester: pytest.Pytester, env_test_template: str, mocker: MockerFixture, ini: str
 ) -> None:
+    (pytester.path / "pytest.ini").write_text(ini, encoding="utf-8")
     (pytester.path / "test_it.py").write_text(env_test_template, encoding="utf-8")
     mocker.patch.dict(
         os.environ,
@@ -43,7 +47,7 @@ def test_verbose_uses_config_source_without_file(
     result = pytester.runpytest("--pytest-env-verbose", "-o", "env=MAGIC=alpha")
 
     result.assert_outcomes(passed=1)
-    result.stdout.fnmatch_lines(["*SET*MAGIC=alpha*(from config)"])
+    result.stdout.fnmatch_lines(["*SET*MAGIC=alpha*(from -o env)"])
 
 
 def test_verbose_shows_ini_source_when_pyproject_lacks_pytest_env(

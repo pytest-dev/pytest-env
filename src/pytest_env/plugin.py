@@ -10,13 +10,15 @@ import os
 import tomllib
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Final, TypeAlias
+from typing import TYPE_CHECKING, Final, TypeAlias, TypeVar
 
 import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
     from pathlib import Path
+
+_Option = TypeVar("_Option", bool, list[str])
 
 _ENV_ACTIONS_KEY: Final[pytest.StashKey[list[str]]] = pytest.StashKey[list[str]]()
 
@@ -68,11 +70,11 @@ def pytest_load_initial_conftests(
         env_files_list, env_files_skip_if_set = toml.env_files, toml.env_files_skip_if_set
 
     if env_files_skip_if_set is None:
-        env_files_skip_if_set = bool(early_config.getini("env_files_skip_if_set"))
+        env_files_skip_if_set = _get_option(early_config, "env_files_skip_if_set", bool)
 
     preexisting = dict(os.environ) if env_files_skip_if_set else {}
     for env_file in _load_env_files(early_config, env_files_list):
-        _apply_env_file(env_file, actions, preexisting, skip_if_set=env_files_skip_if_set)
+        _apply_env_file(early_config, env_file, actions, preexisting, skip_if_set=env_files_skip_if_set)
     _apply_entries(early_config, actions)
 
     if verbose and actions:
@@ -122,10 +124,13 @@ def _load_toml_config(config_path: Path) -> _TomlConfig:
     raw_env_files = pytest_env_config.get("env_files")
     env_files: Final[list[str] | None] = [str(f) for f in raw_env_files] if isinstance(raw_env_files, list) else None
     raw_skip = pytest_env_config.get("env_files_skip_if_set")
+    if raw_skip is not None and not isinstance(raw_skip, bool):
+        msg = f"{config_path}: env_files_skip_if_set must be true or false"
+        raise pytest.UsageError(msg)
     return _TomlConfig(
         env_files=env_files,
         entries=list(_parse_toml_config(pytest_env_config)),
-        env_files_skip_if_set=raw_skip if isinstance(raw_skip, bool) else None,
+        env_files_skip_if_set=raw_skip,
     )
 
 
@@ -140,7 +145,7 @@ def _parse_toml_config(config: dict[str, _TomlValue]) -> Generator[Entry, None, 
     for key, entry in config.items():
         if key == "env_files" and isinstance(entry, list):
             continue
-        if key == "env_files_skip_if_set" and isinstance(entry, bool):
+        if key == "env_files_skip_if_set":
             continue
         if isinstance(entry, dict):
             yield _parse_toml_table(key, entry)
@@ -181,10 +186,20 @@ class Entry:
     unset: bool = False
 
 
+def _get_option(config: pytest.Config, name: str, kind: type[_Option]) -> _Option:
+    try:
+        return config.getini(name)
+    except (pytest.UsageError, TypeError, ValueError):
+        # pytest includes the rejected value in its type diagnostic.
+        expected = "true or false" if kind is bool else "a list of strings"
+        msg = f"pytest-env: invalid {name} option, expected {expected}"
+        raise pytest.UsageError(msg) from None
+
+
 def _load_env_files(early_config: pytest.Config, env_files: list[str] | None) -> Generator[Path, None, None]:
     # Resolve and yield existing env files, with CLI option taking precedence.
     configured_env_files: Final[list[str]] = (
-        env_files if env_files is not None else list(early_config.getini("env_files"))
+        env_files if env_files is not None else _get_option(early_config, "env_files", list[str])
     )
     if (cli_envfile := getattr(early_config.known_args_namespace, "envfile", None)) is None:
         yield from _existing_env_files(early_config, configured_env_files)
@@ -193,7 +208,7 @@ def _load_env_files(early_config: pytest.Config, env_files: list[str] | None) ->
     name = cli_envfile[1:] if extend else cli_envfile
     # pytest resolves the rootdir before --envfile is registered, so a separate PATH value may have moved it.
     candidates = (early_config.invocation_params.dir / name, early_config.rootpath / name)
-    if not (resolved := next((path for path in candidates if path.is_file()), None)):
+    if not name or (resolved := _regular_env_file(candidates)) is None:
         msg = f"Environment file not found: {name}"
         raise FileNotFoundError(msg)
     if extend:
@@ -203,22 +218,33 @@ def _load_env_files(early_config: pytest.Config, env_files: list[str] | None) ->
 
 def _existing_env_files(early_config: pytest.Config, env_files: list[str]) -> Generator[Path, None, None]:
     for env_file_str in env_files:
-        if (resolved := early_config.rootpath / env_file_str).is_file():
+        if (resolved := _regular_env_file((early_config.rootpath / env_file_str,))) is not None:
             yield resolved
 
 
+def _regular_env_file(candidates: tuple[Path, ...]) -> Path | None:
+    if path := next((path for path in candidates if path.is_file()), None):
+        return path
+    if path := next((path for path in candidates if path.exists()), None):
+        msg = f"Environment file is not a regular file: {path}"
+        raise pytest.UsageError(msg)
+    return None
+
+
 def _apply_env_file(
+    config: pytest.Config,
     env_file: Path,
     actions: list[tuple[str, str, str, str]] | None,
     preexisting: dict[str, str],
     *,
     skip_if_set: bool,
 ) -> None:
-    from dotenv import dotenv_values  # ruff: ignore[import-outside-top-level]  # only needed for env files
+    from dotenv.main import resolve_variables  # ruff: ignore[import-outside-top-level]  # only needed for env files
     from dotenv.variables import parse_variables  # ruff: ignore[import-outside-top-level]  # only needed for env files
 
     # python-dotenv expands references before the skip rule runs, so a reference would see a skipped assignment.
-    for key, value in dotenv_values(env_file, interpolate=not skip_if_set).items():
+    entries = _read_env_file(config, env_file)
+    for key, value in (dict(entries) if skip_if_set else resolve_variables(entries, override=True)).items():
         if value is None:
             continue
         if skip_if_set and (env_key := key.upper() if os.name == "nt" else key) in preexisting:
@@ -229,6 +255,21 @@ def _apply_env_file(
             os.environ[key] = final
             if actions is not None:
                 actions.append(("SET", key, final, str(env_file)))
+
+
+def _read_env_file(config: pytest.Config, env_file: Path) -> Iterator[tuple[str, str | None]]:
+    from dotenv.parser import parse_stream  # ruff: ignore[import-outside-top-level]  # only needed for env files
+
+    with env_file.open(encoding="utf-8") as stream:
+        for binding in parse_stream(stream):
+            if binding.error:
+                # python-dotenv includes preceding blank lines in the binding.
+                raw = binding.original.string
+                line = binding.original.line + raw.count("\n", 0, len(raw) - len(raw.lstrip()))
+                msg = f"{env_file}:{line}: skipped malformed dotenv statement"
+                config.issue_config_time_warning(pytest.PytestConfigWarning(msg), stacklevel=2)
+            elif binding.key is not None:
+                yield binding.key, binding.value
 
 
 def _apply_entries(early_config: pytest.Config, actions: list[tuple[str, str, str, str]] | None) -> None:
@@ -252,6 +293,8 @@ def _config_source(early_config: pytest.Config) -> str:
     # Describe the configuration source for verbose output.
     if (toml_path := _find_toml_config(early_config)) and _load_toml_config(toml_path).entries:
         return str(toml_path)
+    if any(item.startswith("env=") for item in early_config.known_args_namespace.override_ini or ()):
+        return "-o env"
     return str(early_config.inipath) if early_config.inipath else "config"
 
 
@@ -261,7 +304,7 @@ def _load_values(early_config: pytest.Config) -> Iterator[Entry]:
         yield from _load_toml_config(toml_config).entries
         return
 
-    for index, line in enumerate(early_config.getini("env"), start=1):
+    for index, line in enumerate(_get_option(early_config, "env", list[str]), start=1):
         # INI lines e.g. D:R:NAME=VAL has two flags (R and D), NAME key, and VAL value
         parts = line.partition("=")
         ini_key_parts = parts[0].split(":")
@@ -287,8 +330,8 @@ def _expand_value(entry: Entry) -> str:
         return entry.value
     try:
         return entry.value.format_map(os.environ)
-    except ValueError:
-        # str.format quotes the expanded nested field, an environment value, in its message.
+    except (KeyError, IndexError, AttributeError, TypeError, ValueError):
+        # Formatting exceptions can include literal text from the template or an expanded value.
         msg = f"pytest-env: invalid {{VAR}} template in the value of {entry.key!r}"
         raise pytest.UsageError(msg) from None
 

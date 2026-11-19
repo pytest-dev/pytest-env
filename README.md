@@ -98,7 +98,8 @@ pytest --envfile +.env.override       # load configured env_files first, then th
 ```
 
 To keep existing environment variables (including with `--envfile`), set `env_files_skip_if_set = true`. A `${VAR}`
-reference in a `.env` file then expands to the kept value:
+reference in a `.env` file then expands to the kept value. Native TOML reserves `env_files_skip_if_set` for this option
+and requires an unquoted `true` or `false`. A string such as `"true"` stops pytest before collection.
 
 ```toml
 [tool.pytest_env]
@@ -215,6 +216,9 @@ env = [
 In `pytest.toml` / `.pytest.toml`, this pytest-native `[pytest]` table is an alternative to the plugin-specific
 `[pytest_env]` TOML table described above. Both forms work there, so `pytest.toml` does not have to use `[pytest_env]`.
 
+In pytest’s native TOML options, `env` and `env_files` take lists of strings and `env_files_skip_if_set` takes a
+boolean. A type error names the option and expected type.
+
 Prefix flags modify behavior. Flags are case-insensitive and can be combined in any order (e.g., `R:D:KEY=VALUE`):
 
 | Flag | Description                                                          |
@@ -249,6 +253,8 @@ env_files =
 Files are parsed by [python-dotenv](https://github.com/theskumar/python-dotenv) and support `KEY=VALUE` lines, `#`
 comments, `export` prefix, quoted values with escape sequences in double quotes, and `${VAR:-default}` expansion.
 
+Malformed statements are skipped. pytest reports their file and line number in its warning summary.
+
 Example `.env` file:
 
 ```shell
@@ -259,8 +265,9 @@ MESSAGE="hello\nworld"
 API_KEY=${FALLBACK_KEY:-default_key}
 ```
 
-Missing `.env` files from configuration are silently skipped. Configured `env_files` are resolved relative to the
-project root. An explicit `env_files = []` in native TOML configuration disables INI-style `env_files` fallback;
+Both `env_files` and `--envfile` accept regular files. A directory or named pipe at a selected path stops pytest with a
+usage error. Missing `.env` files from configuration are silently skipped. Configured `env_files` are resolved relative
+to the project root. An explicit `env_files = []` in native TOML configuration disables INI-style `env_files` fallback;
 omitting the key preserves that fallback. CLI `--envfile` paths still load in either case, resolved relative to the
 directory pytest was invoked from, then the project root.
 
@@ -291,6 +298,8 @@ pytest-env:
   SKIP  HOME=/Users/me                         (from /path/to/pyproject.toml)
   UNSET TEMP_VAR                               (from /path/to/pyproject.toml)
 ```
+
+Entries supplied through `-o env=...` show `-o env` as their source.
 
 Non-printable characters in names, values and paths are shown escaped, so each assignment stays on one line.
 
