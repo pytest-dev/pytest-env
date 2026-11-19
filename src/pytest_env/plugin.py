@@ -205,7 +205,7 @@ def _load_env_files(early_config: pytest.Config, env_files: list[str] | None) ->
     name = cli_envfile[1:] if extend else cli_envfile
     # pytest resolves the rootdir before --envfile is registered, so a separate PATH value may have moved it.
     candidates = (early_config.invocation_params.dir / name, early_config.rootpath / name)
-    if not (resolved := next((path for path in candidates if path.is_file()), None)):
+    if not name or (resolved := _regular_env_file(candidates)) is None:
         msg = f"Environment file not found: {name}"
         raise FileNotFoundError(msg)
     if extend:
@@ -215,8 +215,17 @@ def _load_env_files(early_config: pytest.Config, env_files: list[str] | None) ->
 
 def _existing_env_files(early_config: pytest.Config, env_files: list[str]) -> Generator[Path, None, None]:
     for env_file_str in env_files:
-        if (resolved := early_config.rootpath / env_file_str).is_file():
+        if (resolved := _regular_env_file((early_config.rootpath / env_file_str,))) is not None:
             yield resolved
+
+
+def _regular_env_file(candidates: tuple[Path, ...]) -> Path | None:
+    if path := next((path for path in candidates if path.is_file()), None):
+        return path
+    if path := next((path for path in candidates if path.exists()), None):
+        msg = f"Environment file is not a regular file: {path}"
+        raise pytest.UsageError(msg)
+    return None
 
 
 def _apply_env_file(
