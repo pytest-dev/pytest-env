@@ -72,7 +72,7 @@ def pytest_load_initial_conftests(
 
     preexisting = dict(os.environ) if env_files_skip_if_set else {}
     for env_file in _load_env_files(early_config, env_files_list):
-        _apply_env_file(env_file, actions, preexisting, skip_if_set=env_files_skip_if_set)
+        _apply_env_file(early_config, env_file, actions, preexisting, skip_if_set=env_files_skip_if_set)
     _apply_entries(early_config, actions)
 
     if verbose and actions:
@@ -208,17 +208,19 @@ def _existing_env_files(early_config: pytest.Config, env_files: list[str]) -> Ge
 
 
 def _apply_env_file(
+    config: pytest.Config,
     env_file: Path,
     actions: list[tuple[str, str, str, str]] | None,
     preexisting: dict[str, str],
     *,
     skip_if_set: bool,
 ) -> None:
-    from dotenv import dotenv_values  # ruff: ignore[import-outside-top-level]  # only needed for env files
+    from dotenv.main import resolve_variables  # ruff: ignore[import-outside-top-level]  # only needed for env files
     from dotenv.variables import parse_variables  # ruff: ignore[import-outside-top-level]  # only needed for env files
 
     # python-dotenv expands references before the skip rule runs, so a reference would see a skipped assignment.
-    for key, value in dotenv_values(env_file, interpolate=not skip_if_set).items():
+    entries = _read_env_file(config, env_file)
+    for key, value in (dict(entries) if skip_if_set else resolve_variables(entries, override=True)).items():
         if value is None:
             continue
         if skip_if_set and (env_key := key.upper() if os.name == "nt" else key) in preexisting:
@@ -229,6 +231,18 @@ def _apply_env_file(
             os.environ[key] = final
             if actions is not None:
                 actions.append(("SET", key, final, str(env_file)))
+
+
+def _read_env_file(config: pytest.Config, env_file: Path) -> Iterator[tuple[str, str | None]]:
+    from dotenv.parser import parse_stream  # ruff: ignore[import-outside-top-level]  # only needed for env files
+
+    with env_file.open(encoding="utf-8") as stream:
+        for binding in parse_stream(stream):
+            if binding.error:
+                msg = f"{env_file}:{binding.original.line}: skipped malformed dotenv statement"
+                config.issue_config_time_warning(pytest.PytestConfigWarning(msg), stacklevel=2)
+            elif binding.key is not None:
+                yield binding.key, binding.value
 
 
 def _apply_entries(early_config: pytest.Config, actions: list[tuple[str, str, str, str]] | None) -> None:
