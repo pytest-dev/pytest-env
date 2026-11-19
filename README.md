@@ -253,6 +253,8 @@ env_files =
 Files are parsed by [python-dotenv](https://github.com/theskumar/python-dotenv) and support `KEY=VALUE` lines, `#`
 comments, `export` prefix, quoted values with escape sequences in double quotes, and `${VAR:-default}` expansion.
 
+Malformed statements are skipped. pytest reports their file and line number in its warning summary.
+
 Example `.env` file:
 
 ```shell
