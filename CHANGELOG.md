@@ -2,6 +2,43 @@
 
 <!-- towncrier release notes start -->
 
+<a name="release-1-8-7"></a>
+
+## 1.8.7 (2026-11-19)
+
+<a name="release-1-8-7-fixed"></a>
+
+### Fixed
+
+- Reject non-boolean `env_files_skip_if_set` values in native TOML configuration
+  ([#355](https://github.com/pytest-dev/pytest-env/pull/355)) by [@gaborbernat](https://github.com/gaborbernat).
+- Report `-o env` as the source of overridden INI entries in the verbose header
+  ([#348](https://github.com/pytest-dev/pytest-env/pull/348)) by [@gaborbernat](https://github.com/gaborbernat).
+- Report a configuration error for a directory or named pipe supplied as a dotenv file
+  ([#356](https://github.com/pytest-dev/pytest-env/pull/356)) by [@gaborbernat](https://github.com/gaborbernat).
+- Report a usage error naming the entry when the operating system rejects an environment assignment
+  ([#349](https://github.com/pytest-dev/pytest-env/pull/349)) by [@gaborbernat](https://github.com/gaborbernat).
+- Resolve mixed-case environment variable references on Windows
+  ([#351](https://github.com/pytest-dev/pytest-env/pull/351)) by [@gaborbernat](https://github.com/gaborbernat).
+- Show the file and line number of malformed dotenv statements in pytest's warning summary
+  ([#350](https://github.com/pytest-dev/pytest-env/pull/350)) by [@gaborbernat](https://github.com/gaborbernat).
+
+<a name="release-1-8-7-security"></a>
+
+### Security
+
+- Omit rejected environment option values from configuration errors
+  ([#353](https://github.com/pytest-dev/pytest-env/pull/353)) by [@gaborbernat](https://github.com/gaborbernat).
+- Report invalid environment templates without including field text in error output
+  ([#354](https://github.com/pytest-dev/pytest-env/pull/354)) by [@gaborbernat](https://github.com/gaborbernat).
+
+<a name="release-1-8-7-performance"></a>
+
+### Performance
+
+- Defer loading the `.env` parser until a configured environment file is read
+  ([#341](https://github.com/pytest-dev/pytest-env/pull/341)) by [@gaborbernat](https://github.com/gaborbernat).
+
 <a name="release-1-8-6"></a>
 
 ## 1.8.6 (2026-11-17)
