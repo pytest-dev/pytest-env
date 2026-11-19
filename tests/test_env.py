@@ -1231,3 +1231,23 @@ def test_verbose_envfile_without_config(pytester: pytest.Pytester, mocker: Mocke
 
     result.assert_outcomes(passed=1)
     result.stdout.fnmatch_lines(["*pytest-env:", "*SET*MAGIC=from_cli*(from*cli.env*"])
+
+
+@pytest.mark.parametrize(
+    ("name", "contents", "args"),
+    [
+        pytest.param("pyproject.toml", '[tool.pytest_env]\n"BAD=NAME" = "x"', (), id="toml-key"),
+        pytest.param("pytest.ini", "[pytest]\nenv = BAD=x\0y", (), id="ini-value"),
+        pytest.param("data.env", "BAD=x\0y", ("--envfile=data.env",), id="dotenv-value"),
+    ],
+)
+def test_rejected_assignment(pytester: pytest.Pytester, name: str, contents: str, args: tuple[str, ...]) -> None:
+    path = pytester.path / name
+    path.write_text(contents, encoding="utf-8")
+
+    result = pytester.runpytest(*args)
+
+    assert (result.ret, result.errlines) == (
+        pytest.ExitCode.USAGE_ERROR,
+        [f"ERROR: pytest-env: cannot set environment variable 'BAD' from {path}", ""],
+    )

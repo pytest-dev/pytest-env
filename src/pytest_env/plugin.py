@@ -226,9 +226,26 @@ def _apply_env_file(
                 actions.append(("SKIP", key, preexisting[env_key], str(env_file)))
         else:
             final = "".join(atom.resolve(os.environ) for atom in parse_variables(value)) if skip_if_set else value
-            os.environ[key] = final
+            _set_variable(key, final, env_file)
             if actions is not None:
                 actions.append(("SET", key, final, str(env_file)))
+
+
+def _set_variable(key: str, value: str, source: Path | pytest.Config) -> None:
+    try:
+        os.environ[key] = value
+    except (OSError, ValueError):
+        location = _config_source(source) if isinstance(source, pytest.Config) else source
+        # A malformed key may contain an entire assignment.
+        msg = f"pytest-env: cannot set environment variable {key.partition('=')[0]!r} from {location}"
+        raise pytest.UsageError(msg) from None
+
+
+def _config_source(early_config: pytest.Config) -> str:
+    # Describe the configuration source for verbose output.
+    if (toml_path := _find_toml_config(early_config)) and _load_toml_config(toml_path).entries:
+        return str(toml_path)
+    return str(early_config.inipath) if early_config.inipath else "config"
 
 
 def _apply_entries(early_config: pytest.Config, actions: list[tuple[str, str, str, str]] | None) -> None:
@@ -243,16 +260,9 @@ def _apply_entries(early_config: pytest.Config, actions: list[tuple[str, str, st
                 actions.append(("UNSET", entry.key, "", source))
         else:
             final = _expand_value(entry)
-            os.environ[entry.key] = final
+            _set_variable(entry.key, final, early_config)
             if actions is not None:
                 actions.append(("SET", entry.key, final, source))
-
-
-def _config_source(early_config: pytest.Config) -> str:
-    # Describe the configuration source for verbose output.
-    if (toml_path := _find_toml_config(early_config)) and _load_toml_config(toml_path).entries:
-        return str(toml_path)
-    return str(early_config.inipath) if early_config.inipath else "config"
 
 
 def _load_values(early_config: pytest.Config) -> Iterator[Entry]:
