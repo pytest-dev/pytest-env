@@ -292,6 +292,8 @@ pytest-env:
   UNSET TEMP_VAR                               (from /path/to/pyproject.toml)
 ```
 
+Entries supplied through `-o env=...` show `-o env` as their source.
+
 Non-printable characters in names, values and paths are shown escaped, so each assignment stays on one line.
 
 Useful for debugging when multiple env files, inline configuration, and CLI options interact.

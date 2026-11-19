@@ -252,6 +252,8 @@ def _config_source(early_config: pytest.Config) -> str:
     # Describe the configuration source for verbose output.
     if (toml_path := _find_toml_config(early_config)) and _load_toml_config(toml_path).entries:
         return str(toml_path)
+    if any(item.startswith("env=") for item in early_config.known_args_namespace.override_ini or ()):
+        return "-o env"
     return str(early_config.inipath) if early_config.inipath else "config"
 
 
