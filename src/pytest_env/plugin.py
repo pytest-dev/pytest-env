@@ -311,8 +311,8 @@ def _expand_value(entry: Entry) -> str:
         return entry.value
     try:
         return entry.value.format(**os.environ)
-    except ValueError:
-        # str.format quotes the expanded nested field, an environment value, in its message.
+    except (KeyError, IndexError, AttributeError, TypeError, ValueError):
+        # Formatting exceptions can include literal text from the template or an expanded value.
         msg = f"pytest-env: invalid {{VAR}} template in the value of {entry.key!r}"
         raise pytest.UsageError(msg) from None
 

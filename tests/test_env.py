@@ -641,6 +641,10 @@ def test_env_via_pyproject_toml_bad(pytester: pytest.Pytester, toml_name: str) -
     ("config_file", "config_content"),
     [
         pytest.param("pytest.ini", "[pytest]\nenv = MAGIC={PLANET:-{SECRET}}", id="ini"),
+        pytest.param("pytest.ini", "[pytest]\nenv = MAGIC={MISSING}", id="missing-variable"),
+        pytest.param("pytest.ini", "[pytest]\nenv = MAGIC={0}", id="positional-field"),
+        pytest.param("pytest.ini", "[pytest]\nenv = MAGIC={PLANET[name]}", id="invalid-index-type"),
+        pytest.param("pytest.ini", "[pytest]\nenv = MAGIC={PLANET.missing}", id="missing-attribute"),
         pytest.param(
             "pyproject.toml",
             '[tool.pytest_env]\nMAGIC = { value = "{PLANET:-{SECRET}}", transform = true }',
