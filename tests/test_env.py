@@ -1306,3 +1306,26 @@ def test_invalid_option_type(pytester: pytest.Pytester, name: str, value: str, e
         pytest.ExitCode.USAGE_ERROR,
         [f"ERROR: pytest-env: invalid {name} option, expected {expected}", ""],
     )
+
+
+@pytest.mark.parametrize(
+    ("name", "contents", "args", "source"),
+    [
+        pytest.param("pyproject.toml", '[tool.pytest_env]\n"BAD=NAME" = "x"', (), "{path}", id="toml-key"),
+        pytest.param("pytest.ini", "[pytest]\nenv = BAD=x\0y", (), "{path}", id="ini-value"),
+        pytest.param("data.env", "BAD=x\0y", ("--envfile=data.env",), "{path}", id="dotenv-value"),
+        pytest.param("pytest.ini", "[pytest]", ("-o", "env=BAD=x\0y"), "-o env", id="override"),
+    ],
+)
+def test_rejected_assignment(
+    pytester: pytest.Pytester, name: str, contents: str, args: tuple[str, ...], source: str
+) -> None:
+    path = pytester.path / name
+    path.write_text(contents, encoding="utf-8")
+
+    result = pytester.runpytest(*args)
+
+    assert (result.ret, result.errlines) == (
+        pytest.ExitCode.USAGE_ERROR,
+        [f"ERROR: pytest-env: cannot set environment variable 'BAD' from {source.format(path=path)}", ""],
+    )

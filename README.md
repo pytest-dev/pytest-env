@@ -323,6 +323,8 @@ precedence over INI format. Among TOML files, the first file with a `pytest_env`
 is read like `pytest.toml`. If no TOML file contains `pytest_env`, the plugin falls back to INI-style `env`
 configuration.
 
+When the operating system rejects an assignment, pytest stops before collection and names the variable and its source.
+
 ### File discovery
 
 The plugin walks up the directory tree starting from pytest's resolved configuration directory. For each directory, it
