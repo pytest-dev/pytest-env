@@ -286,7 +286,7 @@ def _expand_value(entry: Entry) -> str:
     if not entry.transform:
         return entry.value
     try:
-        return entry.value.format(**os.environ)
+        return entry.value.format_map(os.environ)
     except ValueError:
         # str.format quotes the expanded nested field, an environment value, in its message.
         msg = f"pytest-env: invalid {{VAR}} template in the value of {entry.key!r}"

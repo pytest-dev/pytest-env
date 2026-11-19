@@ -56,6 +56,12 @@ _TEST_NAME_PATTERN: Final[re.Pattern[str]] = re.compile(r"\W|^(?=\d)")
             id="curly exist - interpolate var",
         ),
         pytest.param(
+            {"Planet": "world"},
+            "[pytest]\nenv = MAGIC={Planet}",
+            {"MAGIC": "world"},
+            id="mixed-case environment reference",
+        ),
+        pytest.param(
             {"PLANET": "world"},
             "[pytest]\nenv = R:MAGIC=hello_{PLANET}",
             {"MAGIC": "hello_{PLANET}"},

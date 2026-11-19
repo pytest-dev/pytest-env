@@ -127,10 +127,10 @@ HOME = { value = "~/tmp", skip_if_set = true }
 TEMP_VAR = { unset = true }
 ```
 
-`transform` expands `{VAR}` placeholders using existing environment variables. `skip_if_set` leaves the variable
-unchanged when it already exists. For `.env` files, use `env_files_skip_if_set = true`. `unset` removes it entirely
-(different from setting to empty string). When an entry combines `skip_if_set` with `unset`, an existing variable is
-kept.
+`transform` expands `{VAR}` placeholders using existing environment variables. Windows looks up these names without
+regard to case. `skip_if_set` leaves the variable unchanged when it already exists. For `.env` files, use
+`env_files_skip_if_set = true`. `unset` removes it entirely (different from setting to empty string). When an entry
+combines `skip_if_set` with `unset`, an existing variable is kept.
 
 ### Set different environments for test suites
 
