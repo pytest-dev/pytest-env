@@ -10,13 +10,15 @@ import os
 import tomllib
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Final, TypeAlias
+from typing import TYPE_CHECKING, Final, TypeAlias, TypeVar
 
 import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
     from pathlib import Path
+
+_Option = TypeVar("_Option", bool, list[str])
 
 _ENV_ACTIONS_KEY: Final[pytest.StashKey[list[str]]] = pytest.StashKey[list[str]]()
 
@@ -68,7 +70,7 @@ def pytest_load_initial_conftests(
         env_files_list, env_files_skip_if_set = toml.env_files, toml.env_files_skip_if_set
 
     if env_files_skip_if_set is None:
-        env_files_skip_if_set = bool(early_config.getini("env_files_skip_if_set"))
+        env_files_skip_if_set = _get_option(early_config, "env_files_skip_if_set", bool)
 
     preexisting = dict(os.environ) if env_files_skip_if_set else {}
     for env_file in _load_env_files(early_config, env_files_list):
@@ -181,10 +183,20 @@ class Entry:
     unset: bool = False
 
 
+def _get_option(config: pytest.Config, name: str, kind: type[_Option]) -> _Option:
+    try:
+        return config.getini(name)
+    except (pytest.UsageError, TypeError, ValueError):
+        # pytest includes the rejected value in its type diagnostic.
+        expected = "true or false" if kind is bool else "a list of strings"
+        msg = f"pytest-env: invalid {name} option, expected {expected}"
+        raise pytest.UsageError(msg) from None
+
+
 def _load_env_files(early_config: pytest.Config, env_files: list[str] | None) -> Generator[Path, None, None]:
     # Resolve and yield existing env files, with CLI option taking precedence.
     configured_env_files: Final[list[str]] = (
-        env_files if env_files is not None else list(early_config.getini("env_files"))
+        env_files if env_files is not None else _get_option(early_config, "env_files", list[str])
     )
     if (cli_envfile := getattr(early_config.known_args_namespace, "envfile", None)) is None:
         yield from _existing_env_files(early_config, configured_env_files)
@@ -261,7 +273,7 @@ def _load_values(early_config: pytest.Config) -> Iterator[Entry]:
         yield from _load_toml_config(toml_config).entries
         return
 
-    for index, line in enumerate(early_config.getini("env"), start=1):
+    for index, line in enumerate(_get_option(early_config, "env", list[str]), start=1):
         # INI lines e.g. D:R:NAME=VAL has two flags (R and D), NAME key, and VAL value
         parts = line.partition("=")
         ini_key_parts = parts[0].split(":")

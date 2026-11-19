@@ -215,6 +215,9 @@ env = [
 In `pytest.toml` / `.pytest.toml`, this pytest-native `[pytest]` table is an alternative to the plugin-specific
 `[pytest_env]` TOML table described above. Both forms work there, so `pytest.toml` does not have to use `[pytest_env]`.
 
+In pytest’s native TOML options, `env` and `env_files` take lists of strings and `env_files_skip_if_set` takes a
+boolean. A type error names the option and expected type.
+
 Prefix flags modify behavior. Flags are case-insensitive and can be combined in any order (e.g., `R:D:KEY=VALUE`):
 
 | Flag | Description                                                          |
