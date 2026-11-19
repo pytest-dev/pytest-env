@@ -670,6 +670,19 @@ def test_invalid_template_is_usage_error_without_value(
     assert "hunter2" not in result.stdout.str() + result.stderr.str()
 
 
+@pytest.mark.parametrize("value", [pytest.param('"true"', id="string"), pytest.param("1", id="integer")])
+def test_native_skip_requires_boolean(pytester: pytest.Pytester, value: str) -> None:
+    config = pytester.path / "pyproject.toml"
+    config.write_text(f"[tool.pytest_env]\nenv_files_skip_if_set = {value}", encoding="utf-8")
+
+    result = pytester.runpytest()
+
+    assert (result.ret, result.errlines) == (
+        pytest.ExitCode.USAGE_ERROR,
+        [f"ERROR: {config}: env_files_skip_if_set must be true or false", ""],
+    )
+
+
 @pytest.mark.parametrize(
     ("entry", "message"),
     [
