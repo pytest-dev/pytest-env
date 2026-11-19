@@ -98,7 +98,8 @@ pytest --envfile +.env.override       # load configured env_files first, then th
 ```
 
 To keep existing environment variables (including with `--envfile`), set `env_files_skip_if_set = true`. A `${VAR}`
-reference in a `.env` file then expands to the kept value:
+reference in a `.env` file then expands to the kept value. Native TOML reserves `env_files_skip_if_set` for this option
+and requires an unquoted `true` or `false`. A string such as `"true"` stops pytest before collection.
 
 ```toml
 [tool.pytest_env]

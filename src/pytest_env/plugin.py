@@ -124,10 +124,13 @@ def _load_toml_config(config_path: Path) -> _TomlConfig:
     raw_env_files = pytest_env_config.get("env_files")
     env_files: Final[list[str] | None] = [str(f) for f in raw_env_files] if isinstance(raw_env_files, list) else None
     raw_skip = pytest_env_config.get("env_files_skip_if_set")
+    if raw_skip is not None and not isinstance(raw_skip, bool):
+        msg = f"{config_path}: env_files_skip_if_set must be true or false"
+        raise pytest.UsageError(msg)
     return _TomlConfig(
         env_files=env_files,
         entries=list(_parse_toml_config(pytest_env_config)),
-        env_files_skip_if_set=raw_skip if isinstance(raw_skip, bool) else None,
+        env_files_skip_if_set=raw_skip,
     )
 
 
@@ -142,7 +145,7 @@ def _parse_toml_config(config: dict[str, _TomlValue]) -> Generator[Entry, None, 
     for key, entry in config.items():
         if key == "env_files" and isinstance(entry, list):
             continue
-        if key == "env_files_skip_if_set" and isinstance(entry, bool):
+        if key == "env_files_skip_if_set":
             continue
         if isinstance(entry, dict):
             yield _parse_toml_table(key, entry)
