@@ -239,7 +239,10 @@ def _read_env_file(config: pytest.Config, env_file: Path) -> Iterator[tuple[str,
     with env_file.open(encoding="utf-8") as stream:
         for binding in parse_stream(stream):
             if binding.error:
-                msg = f"{env_file}:{binding.original.line}: skipped malformed dotenv statement"
+                # python-dotenv includes preceding blank lines in the binding.
+                raw = binding.original.string
+                line = binding.original.line + raw.count("\n", 0, len(raw) - len(raw.lstrip()))
+                msg = f"{env_file}:{line}: skipped malformed dotenv statement"
                 config.issue_config_time_warning(pytest.PytestConfigWarning(msg), stacklevel=2)
             elif binding.key is not None:
                 yield binding.key, binding.value

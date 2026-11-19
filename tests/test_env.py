@@ -768,6 +768,17 @@ def test_envfile_cli(
     pytester.runpytest("--envfile", cli_arg).assert_outcomes(passed=1)
 
 
+def test_skipped_dotenv_line_warns(pytester: pytest.Pytester) -> None:
+    env_file = pytester.path / ".env"
+    env_file.write_text("MODE=local\n\n  \nbad line here\n# comment\n", encoding="utf-8")
+    pytester.makepyfile(test_mode="import os\ndef test_mode():\n    assert os.environ['MODE'] == 'local'")
+
+    result = pytester.runpytest("--envfile=.env")
+
+    result.assert_outcomes(passed=1, warnings=1)
+    result.stdout.fnmatch_lines([f"*PytestConfigWarning: {env_file}:4: skipped malformed dotenv statement"])
+
+
 def test_envfile_cli_skip_if_set(pytester: pytest.Pytester, env_test_template: str, mocker: MockerFixture) -> None:
     (pytester.path / "test_cli_skip.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / "cli.env").write_text("MAGIC=from_cli", encoding="utf-8")
@@ -1231,14 +1242,3 @@ def test_verbose_envfile_without_config(pytester: pytest.Pytester, mocker: Mocke
 
     result.assert_outcomes(passed=1)
     result.stdout.fnmatch_lines(["*pytest-env:", "*SET*MAGIC=from_cli*(from*cli.env*"])
-
-
-def test_skipped_dotenv_line_warns(pytester: pytest.Pytester) -> None:
-    env_file = pytester.path / ".env"
-    env_file.write_text("MODE=local\nbad line here\n# comment\n", encoding="utf-8")
-    pytester.makepyfile(test_mode="import os\ndef test_mode():\n    assert os.environ['MODE'] == 'local'")
-
-    result = pytester.runpytest("--envfile=.env")
-
-    result.assert_outcomes(passed=1, warnings=1)
-    result.stdout.fnmatch_lines([f"*PytestConfigWarning: {env_file}:2: skipped malformed dotenv statement"])
