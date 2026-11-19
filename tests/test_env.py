@@ -1231,3 +1231,22 @@ def test_verbose_envfile_without_config(pytester: pytest.Pytester, mocker: Mocke
 
     result.assert_outcomes(passed=1)
     result.stdout.fnmatch_lines(["*pytest-env:", "*SET*MAGIC=from_cli*(from*cli.env*"])
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        pytest.param("env", "list", id="entries"),
+        pytest.param("env_files", "list", id="files"),
+        pytest.param("env_files_skip_if_set", "bool", id="skip"),
+    ],
+)
+def test_invalid_option_type(pytester: pytest.Pytester, name: str, expected: str) -> None:
+    (pytester.path / "pytest.toml").write_text(f"[pytest]\n{name} = 42\n", encoding="utf-8")
+
+    result = pytester.runpytest()
+
+    assert (result.ret, result.errlines) == (
+        pytest.ExitCode.USAGE_ERROR,
+        [f"ERROR: pytest-env: invalid {name} option, expected {expected}", ""],
+    )

@@ -165,6 +165,9 @@ REMOVED = { unset = true }
 
 A TOML file with another name selected with `-c` is read like `pytest.toml`, from its `[pytest_env]` table.
 
+Invalid types for the pytest options `env`, `env_files`, and `env_files_skip_if_set` produce a usage error naming the
+option and its expected type.
+
 Each key is the environment variable name. Values can be plain values (cast to string) or inline tables with the
 following keys:
 
