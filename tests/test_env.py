@@ -1277,6 +1277,53 @@ def test_env_files_skip_if_set_expands_kept_value(
     pytester.runpytest().assert_outcomes(passed=1)
 
 
+@pytest.mark.parametrize("skip_if_set", [True, False])
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        pytest.param(
+            "BASE=first\nDERIVED=${BASE}\nBASE=last\n",
+            {"BASE": "last", "DERIVED": "first"},
+            id="duplicate-definition",
+        ),
+        pytest.param(
+            "BASE=first\nBASE=${BASE}/second\nDERIVED=${BASE}\n",
+            {"BASE": "first/second", "DERIVED": "first/second"},
+            id="self-reference",
+        ),
+        pytest.param(
+            "BASE\nDERIVED=${BASE:-fallback}\n",
+            {"DERIVED": ""},
+            id="bare-name",
+        ),
+    ],
+)
+def test_env_file_interpolation_preserves_binding_order(
+    pytester: pytest.Pytester,
+    env_test_template: str,
+    mocker: MockerFixture,
+    skip_if_set: bool,
+    content: str,
+    expected: dict[str, str],
+) -> None:
+    (pytester.path / ".env").write_text(content, encoding="utf-8")
+    (pytester.path / "pytest.ini").write_text(
+        f"[pytest]\nenv_files = .env\nenv_files_skip_if_set = {skip_if_set}\n", encoding="utf-8"
+    )
+    pytester.makepyfile(test_interpolation=env_test_template)
+    mocker.patch.dict(
+        os.environ,
+        {
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+            "PYTEST_PLUGINS": "pytest_env.plugin",
+            "_TEST_ENV": repr(expected),
+        },
+        clear=True,
+    )
+
+    pytester.runpytest().assert_outcomes(passed=1)
+
+
 def test_verbose_envfile_without_config(pytester: pytest.Pytester, mocker: MockerFixture) -> None:
     (pytester.path / "cli.env").write_text("MAGIC=from_cli\n", encoding="utf-8")
     pytester.makepyfile(
