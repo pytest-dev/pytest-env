@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Final, TypeAlias, TypeVar
 import pytest
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterator
+    from collections.abc import Generator, Iterable, Iterator
     from pathlib import Path
 
 _Option = TypeVar("_Option", bool, list[str])
@@ -240,21 +240,20 @@ def _apply_env_file(
     skip_if_set: bool,
 ) -> None:
     from dotenv.main import resolve_variables  # ruff: ignore[import-outside-top-level]  # only needed for env files
-    from dotenv.variables import parse_variables  # ruff: ignore[import-outside-top-level]  # only needed for env files
 
-    # python-dotenv expands references before the skip rule runs, so a reference would see a skipped assignment.
     entries = _read_env_file(config, env_file)
-    for key, value in (dict(entries) if skip_if_set else resolve_variables(entries, override=True)).items():
+    for key, value in (
+        _resolve_env_file(entries, preexisting) if skip_if_set else resolve_variables(entries, override=True).items()
+    ):
         if value is None:
             continue
-        if skip_if_set and (env_key := key.upper() if os.name == "nt" else key) in preexisting:
+        if skip_if_set and (env_key := _env_key(key)) in preexisting:
             if actions is not None:
                 actions.append(("SKIP", key, preexisting[env_key], str(env_file)))
         else:
-            final = "".join(atom.resolve(os.environ) for atom in parse_variables(value)) if skip_if_set else value
-            _set_variable(key, final, env_file)
+            _set_variable(key, value, env_file)
             if actions is not None:
-                actions.append(("SET", key, final, str(env_file)))
+                actions.append(("SET", key, value, str(env_file)))
 
 
 def _read_env_file(config: pytest.Config, env_file: Path) -> Iterator[tuple[str, str | None]]:
@@ -270,6 +269,38 @@ def _read_env_file(config: pytest.Config, env_file: Path) -> Iterator[tuple[str,
                 config.issue_config_time_warning(pytest.PytestConfigWarning(msg), stacklevel=2)
             elif binding.key is not None:
                 yield binding.key, binding.value
+
+
+def _resolve_env_file(
+    entries: Iterator[tuple[str, str | None]], preexisting: dict[str, str]
+) -> Iterable[tuple[str, str | None]]:
+    environment: dict[str, str | None] = dict(os.environ)
+    resolved: dict[str, tuple[str, str | None]] = {}
+    for key, value in entries:
+        env_key = _env_key(key)
+        expanded = value
+        if env_key not in preexisting:
+            if value is not None:
+                expanded = _expand_env_file_value(value, environment)
+            environment[env_key] = expanded
+        resolved[env_key] = key, expanded
+    return resolved.values()
+
+
+def _expand_env_file_value(value: str, environment: dict[str, str | None]) -> str:
+    from dotenv.variables import Variable, parse_variables  # ruff: ignore[import-outside-top-level]  # defer dotenv loading
+
+    parts = []
+    for atom in parse_variables(value):
+        if isinstance(atom, Variable):
+            parts.append(Variable(_env_key(atom.name), atom.default).resolve(environment))
+        else:
+            parts.append(atom.resolve(environment))
+    return "".join(parts)
+
+
+def _env_key(key: str) -> str:
+    return key.upper() if os.name == "nt" else key
 
 
 def _set_variable(key: str, value: str, source: Path | pytest.Config) -> None:

@@ -1243,6 +1243,30 @@ def test_env_files_skip_if_set_respects_platform_case(
             id="reference to value set by file",
         ),
         pytest.param(
+            {"DB_HOST": "shell"},
+            "DB_HOST=localhost\nDATABASE_URL=postgres://${db_host:-fallback}/app\n",
+            {"DATABASE_URL": "postgres://shell/app" if os.name == "nt" else "postgres://fallback/app"},
+            id="mixed-case reference to kept value",
+        ),
+        pytest.param(
+            {},
+            "DB_HOST=localhost\nDATABASE_URL=postgres://${db_host:-fallback}/app\n",
+            {"DATABASE_URL": "postgres://localhost/app" if os.name == "nt" else "postgres://fallback/app"},
+            id="mixed-case reference to value set by file",
+        ),
+        pytest.param(
+            {"DB_HOST": "shell"},
+            "DB_HOST\nDATABASE_URL=postgres://${db_host:-fallback}/app\n",
+            {"DATABASE_URL": "postgres://shell/app" if os.name == "nt" else "postgres://fallback/app"},
+            id="mixed-case reference to kept bare name",
+        ),
+        pytest.param(
+            {},
+            "DB_HOST=first\ndb_host=second\nDB_HOST=third\nDATABASE_URL=postgres://${DB_HOST}/app\n",
+            {"DB_HOST": "third", "DATABASE_URL": "postgres://third/app"},
+            id="mixed-case repeated definition",
+        ),
+        pytest.param(
             {},
             "DATABASE_URL=postgres://${MISSING:-fallback}/app\n",
             {"DATABASE_URL": "postgres://fallback/app"},
@@ -1274,6 +1298,58 @@ def test_env_files_skip_if_set_expands_kept_value(
         {**env, "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"},
         clear=True,
     )
+    pytester.runpytest().assert_outcomes(passed=1)
+
+
+@pytest.mark.parametrize("skip_if_set", [True, False])
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        pytest.param(
+            "BASE=first\nDERIVED=${BASE}\nBASE=last\n",
+            {"BASE": "last", "DERIVED": "first"},
+            id="duplicate-definition",
+        ),
+        pytest.param(
+            "BASE=first\nBASE=${BASE}/second\nDERIVED=${BASE}\n",
+            {"BASE": "first/second", "DERIVED": "first/second"},
+            id="self-reference",
+        ),
+        pytest.param(
+            "BASE\nDERIVED=${BASE:-fallback}\n",
+            {"BASE": None, "DERIVED": ""},
+            id="bare-name",
+        ),
+        pytest.param(
+            "BASE=first\nDERIVED=${BASE}\nBASE\n",
+            {"BASE": None, "DERIVED": "first"},
+            id="bare-name-after-assignment",
+        ),
+    ],
+)
+def test_env_file_interpolation_preserves_binding_order(
+    pytester: pytest.Pytester,
+    env_test_template: str,
+    mocker: MockerFixture,
+    skip_if_set: bool,
+    content: str,
+    expected: dict[str, str | None],
+) -> None:
+    (pytester.path / ".env").write_text(content, encoding="utf-8")
+    (pytester.path / "pytest.ini").write_text(
+        f"[pytest]\nenv_files = .env\nenv_files_skip_if_set = {skip_if_set}\n", encoding="utf-8"
+    )
+    pytester.makepyfile(test_interpolation=env_test_template)
+    mocker.patch.dict(
+        os.environ,
+        {
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+            "PYTEST_PLUGINS": "pytest_env.plugin",
+            "_TEST_ENV": repr(expected),
+        },
+        clear=True,
+    )
+
     pytester.runpytest().assert_outcomes(passed=1)
 
 
