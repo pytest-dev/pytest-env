@@ -253,6 +253,10 @@ env_files =
 Files are parsed by [python-dotenv](https://github.com/theskumar/python-dotenv) and support `KEY=VALUE` lines, `#`
 comments, `export` prefix, quoted values with escape sequences in double quotes, and `${VAR:-default}` expansion.
 
+References expand in file order. Given `BASE=first`, `DERIVED=${BASE}`, and then `BASE=last`, pytest sees
+`DERIVED=first` and `BASE=last`. With `env_files_skip_if_set = true`, an existing `BASE` supplies the reference and
+keeps its value. In this mode, Windows matches names without regard to case.
+
 Malformed statements are skipped. pytest reports their file and line number in its warning summary.
 
 Example `.env` file:

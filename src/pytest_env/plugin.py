@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Final, TypeAlias, TypeVar
 import pytest
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterator
+    from collections.abc import Generator, Iterable, Iterator
     from pathlib import Path
 
 _Option = TypeVar("_Option", bool, list[str])
@@ -243,11 +243,11 @@ def _apply_env_file(
 
     entries = _read_env_file(config, env_file)
     for key, value in (
-        _resolve_env_file(entries, preexisting) if skip_if_set else resolve_variables(entries, override=True)
-    ).items():
+        _resolve_env_file(entries, preexisting) if skip_if_set else resolve_variables(entries, override=True).items()
+    ):
         if value is None:
             continue
-        if skip_if_set and (env_key := key.upper() if os.name == "nt" else key) in preexisting:
+        if skip_if_set and (env_key := _env_key(key)) in preexisting:
             if actions is not None:
                 actions.append(("SKIP", key, preexisting[env_key], str(env_file)))
         else:
@@ -271,21 +271,36 @@ def _read_env_file(config: pytest.Config, env_file: Path) -> Iterator[tuple[str,
                 yield binding.key, binding.value
 
 
-def _resolve_env_file(entries: Iterator[tuple[str, str | None]], preexisting: dict[str, str]) -> dict[str, str | None]:
-    from dotenv.variables import parse_variables  # ruff: ignore[import-outside-top-level]  # only needed for env files
+def _resolve_env_file(
+    entries: Iterator[tuple[str, str | None]], preexisting: dict[str, str]
+) -> Iterable[tuple[str, str | None]]:
+    environment: dict[str, str | None] = dict(os.environ)
+    resolved: dict[str, tuple[str, str | None]] = {}
+    for key, value in entries:
+        env_key = _env_key(key)
+        expanded = value
+        if env_key not in preexisting:
+            if value is not None:
+                expanded = _expand_env_file_value(value, environment)
+            environment[env_key] = expanded
+        resolved[env_key] = key, expanded
+    return resolved.values()
 
-    # Resolve bindings before collapsing repeated keys, retaining protected environment values.
-    bindings = list(entries)
-    resolved: dict[str, str | None] = {}
-    for key, value in bindings:
-        if (env_key := key.upper() if os.name == "nt" else key) in preexisting:
-            resolved[key] = preexisting[env_key]
-        elif value is None:
-            resolved[key] = None
+
+def _expand_env_file_value(value: str, environment: dict[str, str | None]) -> str:
+    from dotenv.variables import Variable, parse_variables  # ruff: ignore[import-outside-top-level]  # defer dotenv loading
+
+    parts = []
+    for atom in parse_variables(value):
+        if isinstance(atom, Variable):
+            parts.append(Variable(_env_key(atom.name), atom.default).resolve(environment))
         else:
-            environment = {**os.environ, **resolved}
-            resolved[key] = "".join(atom.resolve(environment) for atom in parse_variables(value))
-    return {key: resolved[key] if value is not None else None for key, value in bindings}
+            parts.append(atom.resolve(environment))
+    return "".join(parts)
+
+
+def _env_key(key: str) -> str:
+    return key.upper() if os.name == "nt" else key
 
 
 def _set_variable(key: str, value: str, source: Path | pytest.Config) -> None:

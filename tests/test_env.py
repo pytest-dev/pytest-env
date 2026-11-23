@@ -1243,6 +1243,30 @@ def test_env_files_skip_if_set_respects_platform_case(
             id="reference to value set by file",
         ),
         pytest.param(
+            {"DB_HOST": "shell"},
+            "DB_HOST=localhost\nDATABASE_URL=postgres://${db_host:-fallback}/app\n",
+            {"DATABASE_URL": "postgres://shell/app" if os.name == "nt" else "postgres://fallback/app"},
+            id="mixed-case reference to kept value",
+        ),
+        pytest.param(
+            {},
+            "DB_HOST=localhost\nDATABASE_URL=postgres://${db_host:-fallback}/app\n",
+            {"DATABASE_URL": "postgres://localhost/app" if os.name == "nt" else "postgres://fallback/app"},
+            id="mixed-case reference to value set by file",
+        ),
+        pytest.param(
+            {"DB_HOST": "shell"},
+            "DB_HOST\nDATABASE_URL=postgres://${db_host:-fallback}/app\n",
+            {"DATABASE_URL": "postgres://shell/app" if os.name == "nt" else "postgres://fallback/app"},
+            id="mixed-case reference to kept bare name",
+        ),
+        pytest.param(
+            {},
+            "DB_HOST=first\ndb_host=second\nDB_HOST=third\nDATABASE_URL=postgres://${DB_HOST}/app\n",
+            {"DB_HOST": "third", "DATABASE_URL": "postgres://third/app"},
+            id="mixed-case repeated definition",
+        ),
+        pytest.param(
             {},
             "DATABASE_URL=postgres://${MISSING:-fallback}/app\n",
             {"DATABASE_URL": "postgres://fallback/app"},
@@ -1293,8 +1317,13 @@ def test_env_files_skip_if_set_expands_kept_value(
         ),
         pytest.param(
             "BASE\nDERIVED=${BASE:-fallback}\n",
-            {"DERIVED": ""},
+            {"BASE": None, "DERIVED": ""},
             id="bare-name",
+        ),
+        pytest.param(
+            "BASE=first\nDERIVED=${BASE}\nBASE\n",
+            {"BASE": None, "DERIVED": "first"},
+            id="bare-name-after-assignment",
         ),
     ],
 )
@@ -1304,7 +1333,7 @@ def test_env_file_interpolation_preserves_binding_order(
     mocker: MockerFixture,
     skip_if_set: bool,
     content: str,
-    expected: dict[str, str],
+    expected: dict[str, str | None],
 ) -> None:
     (pytester.path / ".env").write_text(content, encoding="utf-8")
     (pytester.path / "pytest.ini").write_text(
