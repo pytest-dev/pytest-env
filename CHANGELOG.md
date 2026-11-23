@@ -2,6 +2,18 @@
 
 <!-- towncrier release notes start -->
 
+<a name="release-1-8-8"></a>
+
+## 1.8.8 (2026-11-23)
+
+<a name="release-1-8-8-fixed"></a>
+
+### Fixed
+
+- Expand dotenv references in file order when `env_files_skip_if_set` is enabled, including repeated definitions and
+  bare names ([#358](https://github.com/pytest-dev/pytest-env/pull/358)) by
+  [@narayana006](https://github.com/narayana006) and [@gaborbernat](https://github.com/gaborbernat).
+
 <a name="release-1-8-7"></a>
 
 ## 1.8.7 (2026-11-19)
