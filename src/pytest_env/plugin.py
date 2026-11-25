@@ -72,8 +72,9 @@ def pytest_load_initial_conftests(
     if env_files_skip_if_set is None:
         env_files_skip_if_set = _get_option(early_config, "env_files_skip_if_set", bool)
 
-    preexisting = dict(os.environ) if env_files_skip_if_set else {}
     for env_file in _load_env_files(early_config, env_files_list):
+        # Each file counts variables set by earlier files as existing, so the first file wins.
+        preexisting = dict(os.environ) if env_files_skip_if_set else {}
         _apply_env_file(early_config, env_file, actions, preexisting, skip_if_set=env_files_skip_if_set)
     _apply_entries(early_config, actions)
 

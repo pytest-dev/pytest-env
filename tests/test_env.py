@@ -825,6 +825,32 @@ def test_envfile_cli_skip_if_set(pytester: pytest.Pytester, env_test_template: s
     pytester.runpytest("--envfile", "cli.env").assert_outcomes(passed=1)
 
 
+def test_env_files_skip_if_set_first_file_wins(
+    pytester: pytest.Pytester, env_test_template: str, mocker: MockerFixture
+) -> None:
+    (pytester.path / "test_multi_skip.py").write_text(env_test_template, encoding="utf-8")
+    (pytester.path / ".env").write_text("MAGIC=from_first\n", encoding="utf-8")
+    (pytester.path / ".env.test").write_text("MAGIC=from_second\nEXPANDED=${MAGIC}_suffix\n", encoding="utf-8")
+    (pytester.path / "pyproject.toml").write_text(
+        dedent("""\
+            [tool.pytest_env]
+            env_files = [".env", ".env.test"]
+            env_files_skip_if_set = true
+        """),
+        encoding="utf-8",
+    )
+
+    expected_env = {"MAGIC": "from_first", "EXPANDED": "from_first_suffix"}
+    new_env = {
+        "_TEST_ENV": repr(expected_env),
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_PLUGINS": "pytest_env.plugin",
+    }
+
+    mocker.patch.dict(os.environ, new_env, clear=True)
+    pytester.runpytest().assert_outcomes(passed=1)
+
+
 @pytest.mark.parametrize(
     "cli_arg",
     [
