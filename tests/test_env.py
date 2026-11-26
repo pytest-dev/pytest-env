@@ -1163,13 +1163,12 @@ def test_native_env_files_override_ini(
         """),
     )
     system_env: Final[dict[str, str]] = {key: os.environ[key] for key in ("SYSTEMROOT", "WINDIR") if key in os.environ}
-    pythonpath: Final[str] = os.pathsep.join(filter(None, (os.environ.get("PYTHONPATH"), python_env.get("PYTHONPATH"))))
     mocker.patch.dict(
         os.environ,
         {
             **system_env,
             **python_env,
-            **({"PYTHONPATH": pythonpath} if pythonpath else {}),
+            "PYTHONPATH": os.pathsep.join(filter(None, (os.environ.get("PYTHONPATH"), python_env.get("PYTHONPATH")))),
             "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
             "PYTEST_PLUGINS": "pytest_env.plugin",
         },
