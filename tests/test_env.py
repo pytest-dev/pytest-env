@@ -1168,6 +1168,8 @@ def test_native_env_files_override_ini(
         {
             **system_env,
             **python_env,
+            # Packagers may expose the plugin only through the caller's PYTHONPATH.
+            "PYTHONPATH": os.pathsep.join(filter(None, (os.environ.get("PYTHONPATH"), python_env.get("PYTHONPATH")))),
             "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
             "PYTEST_PLUGINS": "pytest_env.plugin",
         },
